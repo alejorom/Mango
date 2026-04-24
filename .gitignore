@@ -1,0 +1,28 @@
+# Carpetas de compilación (Binarios)
+bin/
+obj/
+
+# Archivos de publicación
+publish/
+
+# Configuración de Visual Studio / VS Code
+.vs/
+.vscode/
+*.user
+*.userosscache
+*.sln.docstates
+
+# Archivos de configuración local (donde suelen ir secretos)
+appsettings.Development.json
+appsettings.Local.json
+
+# Herramientas de .NET
+.dotnet/
+project.lock.json
+project.fragment.lock.json
+
+# Paquetes NuGet
+*.nupkg
+# La carpeta de paquetes global no suele estar en la raíz, 
+# pero por seguridad:
+packages/
