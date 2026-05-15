@@ -41,14 +41,17 @@ namespace Mango.Services.AuthAPI.Service
         {
             var user = _db.ApplicationUsers.FirstOrDefault(u => u.UserName.ToLower() == loginRequestDto.UserName.ToLower());
             bool isValid = await _userManager.CheckPasswordAsync(user, loginRequestDto.Password);
-            
+
             if (user == null || isValid == false)
             {
                 return new LoginResponseDto() { User = null, Token = "" };
             }
 
+            // Obtener los roles del usuario
+            var roles = await _userManager.GetRolesAsync(user);
+
             // If user was found , Generate JWT Token
-            var token = _jwtTokenGenerator.GenerateToken(user);
+            var token = _jwtTokenGenerator.GenerateToken(user, roles);
 
             UserDto userDTO = new()
             {
