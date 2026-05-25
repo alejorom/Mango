@@ -110,6 +110,7 @@ namespace Mango.Web.Controllers
         public async Task<IActionResult> Logout()
         {
             await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+            _tokenProvider.ClearToken();
             return RedirectToAction("Index", "Home");
         }
     }
