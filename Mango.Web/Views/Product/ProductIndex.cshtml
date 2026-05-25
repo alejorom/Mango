@@ -1,0 +1,48 @@
+@model IEnumerable<ProductDto>
+
+<div class="card shadow border-0 mt-4">
+    <div class="card-header bg-secondary bg-gradient ml-0 py-3">
+        <div class="row">
+            <div class="col-12 text-center">
+                <h1 class="text-white">Products List</h1>
+            </div>
+        </div>
+    </div>
+    <div class="card-body p-4">
+        <div class="row pb-3">
+            <div class="col-12 text-end">
+                <a asp-controller="Product" asp-action="ProductCreate" class="btn btn-outline-primary"><i class="bi bi-plus-square"></i> Create New Product</a>
+            </div>
+        </div>
+        <table class="table">
+            <thead>
+                <tr>
+                    <th style="width: 15%;">Name</th>
+                    <th style="width: 10%;">Price</th>
+                    <th style="width: 12%;">Category</th>
+                    <th style="width: 50%;">Description</th>
+                    <th style="width: 13%;">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var item in Model)
+                {
+                    <tr>
+                        <td>@item.Name</td>
+                        <td class="text-nowrap">@item.Price.ToString("c")</td>
+                        <td>@item.CategoryName</td>
+                        <td>@item.Description</td>
+                        <td class="text-nowrap">
+                            <a asp-controller="Product" asp-action="ProductEdit" asp-route-productId="@item.ProductId" class="btn btn-success">
+                                <i class="bi bi-pencil-square"></i>
+                            </a>
+                            <a asp-controller="Product" asp-action="ProductDelete" asp-route-productId="@item.ProductId" class="btn btn-danger">
+                                <i class="bi bi-trash"></i>
+                            </a>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
