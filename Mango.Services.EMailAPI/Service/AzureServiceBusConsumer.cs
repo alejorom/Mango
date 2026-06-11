@@ -11,12 +11,14 @@ namespace Mango.Services.EMailAPI.Service
         private readonly string serviceBusConnectionString;
         private readonly string emailCartQueue;
         private readonly IConfiguration _configuration;
+        private readonly EmailService _emailService;
 
         private ServiceBusProcessor _emailCartProcessor;
 
-        public AzureServiceBusConsumer(IConfiguration configuration)
+        public AzureServiceBusConsumer(IConfiguration configuration, EmailService emailService)
         {
             _configuration = configuration;
+            _emailService = emailService;
 
             serviceBusConnectionString = _configuration.GetValue<string>("ServiceBusConnectionString");
             emailCartQueue = _configuration.GetValue<string>("TopicAndQueueNames:EmailShoppingCartQueue");
@@ -47,6 +49,7 @@ namespace Mango.Services.EMailAPI.Service
             CartDto objMessage = JsonConvert.DeserializeObject<CartDto>(body);
             try
             {
+                await _emailService.EmailCartAndLog(objMessage);
                 await args.CompleteMessageAsync(args.Message);
             }
             catch (Exception ex)
