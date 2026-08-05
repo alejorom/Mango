@@ -480,3 +480,24 @@ $RECYCLE.BIN/
 
 # Vim temporary swap files
 *.swp
+/.debtdoctor
+
+# ==========================================
+# Configuración para carpeta .openspec
+# ==========================================
+
+# Asegurar que Git NUNCA ignore la carpeta principal
+!.openspec/
+
+# Ignorar cualquier archivo o subcarpeta llamada "drafts" o "borradores"
+.openspec/**/drafts/
+.openspec/**/borradores/
+
+# Ignorar archivos con sufijo de borrador o temporales
+.openspec/**/*.draft.md
+.openspec/**/*.tmp
+.openspec/**/*.bak
+
+# Ignorar notas personales del desarrollador
+.openspec/**/notes.txt
+.openspec/**/local-*/
