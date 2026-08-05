@@ -25,51 +25,66 @@ namespace Mango.Services.CouponAPI.Controllers
         }
 
         [HttpGet]
-        public ResponseDto Get()
+        public ActionResult<ResponseDto> Get()
         {
             try
             {
                 IEnumerable<Coupon> objList = _db.Coupons.ToList();
                 _response.Result = _mapper.Map<IEnumerable<CouponDto>>(objList);
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 _response.IsSuccess = false;
-                _response.Message = ex.Message;
+                _response.Message = "An unexpected error occurred";
+                return StatusCode(500, _response);
             }
             return _response;
         }
 
         [HttpGet]
         [Route("{id:int}")]
-        public ResponseDto Get(int id)
+        public ActionResult<ResponseDto> Get(int id)
         {
             try
             {
-                Coupon obj = _db.Coupons.First(u => u.CouponId == id);
+                Coupon obj = _db.Coupons.FirstOrDefault(u => u.CouponId == id);
+                if (obj == null)
+                {
+                    _response.IsSuccess = false;
+                    _response.Message = "Coupon not found";
+                    return NotFound(_response);
+                }
                 _response.Result = _mapper.Map<CouponDto>(obj);
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 _response.IsSuccess = false;
-                _response.Message = ex.Message;
+                _response.Message = "An unexpected error occurred";
+                return StatusCode(500, _response);
             }
             return _response;
         }
 
         [HttpGet]
         [Route("GetByCode/{code}")]
-        public ResponseDto GetByCode(string code)
+        public ActionResult<ResponseDto> GetByCode(string code)
         {
             try
             {
-                Coupon obj = _db.Coupons.First(u => u.CouponCode.ToLower() == code.ToLower());
+                Coupon obj = _db.Coupons.FirstOrDefault(u => u.CouponCode.ToLower() == code.ToLower());
+                if (obj == null)
+                {
+                    _response.IsSuccess = false;
+                    _response.Message = "Coupon not found";
+                    return NotFound(_response);
+                }
                 _response.Result = _mapper.Map<CouponDto>(obj);
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 _response.IsSuccess = false;
-                _response.Message = ex.Message;
+                _response.Message = "An unexpected error occurred";
+                return StatusCode(500, _response);
             }
             return _response;
         }
@@ -77,8 +92,13 @@ namespace Mango.Services.CouponAPI.Controllers
 
         [HttpPost]
         [Authorize(Roles = "ADMIN")]
-        public ResponseDto Post([FromBody] CouponDto couponDto)
+        public ActionResult<ResponseDto> Post([FromBody] CouponDto couponDto)
         {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+
             try
             {
                 Coupon obj = _mapper.Map<Coupon>(couponDto);
@@ -86,18 +106,24 @@ namespace Mango.Services.CouponAPI.Controllers
                 _db.SaveChanges();
                 _response.Result = _mapper.Map<CouponDto>(obj);
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 _response.IsSuccess = false;
-                _response.Message = ex.Message;
+                _response.Message = "An unexpected error occurred";
+                return StatusCode(500, _response);
             }
             return _response;
         }
 
         [HttpPut]
         [Authorize(Roles = "ADMIN")]
-        public ResponseDto Put([FromBody] CouponDto couponDto)
+        public ActionResult<ResponseDto> Put([FromBody] CouponDto couponDto)
         {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+
             try
             {
                 Coupon obj = _mapper.Map<Coupon>(couponDto);
@@ -105,10 +131,11 @@ namespace Mango.Services.CouponAPI.Controllers
                 _db.SaveChanges();
                 _response.Result = _mapper.Map<CouponDto>(obj);
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 _response.IsSuccess = false;
-                _response.Message = ex.Message;
+                _response.Message = "An unexpected error occurred";
+                return StatusCode(500, _response);
             }
             return _response;
         }
@@ -116,18 +143,25 @@ namespace Mango.Services.CouponAPI.Controllers
         [HttpDelete]
         [Route("{id:int}")]
         [Authorize(Roles = "ADMIN")]
-        public ResponseDto Delete(int id)
+        public ActionResult<ResponseDto> Delete(int id)
         {
             try
             {
-                Coupon obj = _db.Coupons.First(u => u.CouponId == id);
+                Coupon obj = _db.Coupons.FirstOrDefault(u => u.CouponId == id);
+                if (obj == null)
+                {
+                    _response.IsSuccess = false;
+                    _response.Message = "Coupon not found";
+                    return NotFound(_response);
+                }
                 _db.Coupons.Remove(obj);
                 _db.SaveChanges();
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 _response.IsSuccess = false;
-                _response.Message = ex.Message;
+                _response.Message = "An unexpected error occurred";
+                return StatusCode(500, _response);
             }
             return _response;
         }

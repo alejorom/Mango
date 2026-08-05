@@ -1,24 +1,4 @@
-# coupon-api Specification
-
-## Purpose
-
-The Coupon API microservice manages discount coupon records (create, read, update, delete) used by other Mango services, and exposes them over a JWT-secured REST interface backed by SQL Server.
-
-## Requirements
-
-### Requirement: Coupon domain model and persistence
-The system SHALL persist coupons as a `Coupon` entity with fields `CouponId` (int, identity primary key), `CouponCode` (string, required), `DiscountAmount` (double, required), and `MinAmount` (int, no default validation). Coupons SHALL be stored in a single `Coupons` table in a SQL Server database via an EF Core `DbContext` with one `DbSet<Coupon>`.
-
-#### Scenario: Coupon table schema
-- **WHEN** the database is migrated
-- **THEN** a `Coupons` table exists with columns `CouponId` (identity PK), `CouponCode` (nvarchar(max), not null), `DiscountAmount` (float), `MinAmount` (int)
-
-### Requirement: Retrieve all coupons
-The system SHALL expose `GET /api/coupon` that returns every coupon row, mapped to `CouponDto`, wrapped in a `ResponseDto` with `IsSuccess = true` and `Result` set to the coupon list. The endpoint SHALL require a valid, authenticated JWT bearer token but no specific role.
-
-#### Scenario: List all coupons
-- **WHEN** an authenticated caller sends `GET /api/coupon`
-- **THEN** the response body is a `ResponseDto` whose `Result` contains all coupons currently in the database
+## MODIFIED Requirements
 
 ### Requirement: Retrieve coupon by id
 The system SHALL expose `GET /api/coupon/{id:int}` that returns the coupon matching `CouponId`, mapped to `CouponDto`. The endpoint SHALL require a valid, authenticated JWT bearer token but no specific role. The lookup SHALL use a null-safe query (no exception-driven control flow). If no coupon matches the given id, the system SHALL return HTTP 404 Not Found with a `ResponseDto` where `IsSuccess = false` and a generic not-found `Message`, without exposing any internal exception detail.
@@ -83,6 +63,8 @@ The system SHALL expose `DELETE /api/coupon/{id:int}` that removes the coupon ma
 - **WHEN** a caller authenticated with role `ADMIN` sends `DELETE /api/coupon/{id}` for a `CouponId` that does not exist
 - **THEN** the response is HTTP 404 Not Found with `IsSuccess = false`
 
+## ADDED Requirements
+
 ### Requirement: Coupon payload validation rules
 `CouponDto` payloads submitted to `POST /api/coupon` and `PUT /api/coupon` SHALL be validated server-side before any persistence occurs: `CouponCode` SHALL be required and non-empty, `DiscountAmount` SHALL be greater than 0, and `MinAmount` SHALL be greater than or equal to 0. A payload violating any of these rules SHALL be rejected with HTTP 400 Bad Request and SHALL NOT reach the database.
 
@@ -104,14 +86,3 @@ When an unexpected server-side error occurs on any `/api/coupon` endpoint, the s
 #### Scenario: Unexpected error on any endpoint
 - **WHEN** an unhandled exception occurs while processing a `/api/coupon` request
 - **THEN** the response is HTTP 500 Internal Server Error with a generic `Message` and no exception detail is present in the response body
-
-### Requirement: JWT-based authentication and authorization
-The system SHALL authenticate every request to `CouponAPIController` using JWT bearer tokens validated against `ApiSettings:Secret` (signing key), `ApiSettings:Issuer`, and `ApiSettings:Audience` from configuration. The system SHALL NOT use ASP.NET Core Identity (`UserManager`/`IdentityDbContext`) within this service; tokens are issued by a separate service and only validated here. Write operations (POST, PUT, DELETE) SHALL additionally require a `role` claim equal to `ADMIN`.
-
-#### Scenario: Request without a token is rejected
-- **WHEN** a caller sends any `/api/coupon` request without a bearer token
-- **THEN** the request is rejected with an authentication failure before reaching the controller action
-
-#### Scenario: Valid token without ADMIN role can read but not write
-- **WHEN** a caller presents a valid JWT without the `ADMIN` role claim
-- **THEN** GET endpoints succeed and POST/PUT/DELETE endpoints are rejected by authorization
