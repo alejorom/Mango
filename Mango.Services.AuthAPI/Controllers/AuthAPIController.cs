@@ -1,6 +1,7 @@
 ﻿using Mango.MessageBus.Service.IService;
 using Mango.Services.AuthAPI.Models.Dto;
 using Mango.Services.AuthAPI.Service.IService;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Mango.Services.AuthAPI.Controllers
@@ -52,8 +53,15 @@ namespace Mango.Services.AuthAPI.Controllers
         }
 
         [HttpPost("AssignRole")]
+        [Authorize(Roles = "ADMIN")]
         public async Task<IActionResult> AssignRole([FromBody] RegistrationRequestDto model)
         {
+            if (string.IsNullOrEmpty(model.Role))
+            {
+                _response.IsSuccess = false;
+                _response.Message = "Error encountered";
+                return BadRequest(_response);
+            }
             var assignRoleSuccessful = await _authService.AssignRole(model.Email, model.Role.ToUpper());
             if (!assignRoleSuccessful)
             {

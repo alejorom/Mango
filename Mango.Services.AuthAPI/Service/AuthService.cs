@@ -12,13 +12,15 @@ namespace Mango.Services.AuthAPI.Service
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly RoleManager<IdentityRole> _roleManager;
         private readonly IJwtTokenGenerator _jwtTokenGenerator;
+        private readonly ILogger<AuthService> _logger;
 
-        public AuthService(AppDbContext db, IJwtTokenGenerator jwtTokenGenerator, UserManager<ApplicationUser> userManager, RoleManager<IdentityRole> roleManager)
+        public AuthService(AppDbContext db, IJwtTokenGenerator jwtTokenGenerator, UserManager<ApplicationUser> userManager, RoleManager<IdentityRole> roleManager, ILogger<AuthService> logger)
         {
             _db = db;
             _jwtTokenGenerator = jwtTokenGenerator;
             _userManager = userManager;
             _roleManager = roleManager;
+            _logger = logger;
         }
 
         public async Task<bool> AssignRole(string email, string roleName)
@@ -40,9 +42,14 @@ namespace Mango.Services.AuthAPI.Service
         public async Task<LoginResponseDto> Login(LoginRequestDto loginRequestDto)
         {
             var user = _db.ApplicationUsers.FirstOrDefault(u => u.UserName.ToLower() == loginRequestDto.UserName.ToLower());
+            if (user == null)
+            {
+                return new LoginResponseDto() { User = null, Token = "" };
+            }
+
             bool isValid = await _userManager.CheckPasswordAsync(user, loginRequestDto.Password);
 
-            if (user == null || isValid == false)
+            if (isValid == false)
             {
                 return new LoginResponseDto() { User = null, Token = "" };
             }
@@ -103,7 +110,7 @@ namespace Mango.Services.AuthAPI.Service
             }
             catch (Exception ex)
             {
-
+                _logger.LogError(ex, "Error registering user with email {Email}", registrationRequestDto.Email);
             }
             return "Error Encountered";
         }
