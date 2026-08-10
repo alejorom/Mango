@@ -36,3 +36,15 @@ Stack: .NET 8+, C#, ASP.NET Core Web API, Minimal APIs, MassTransit / RabbitMQ, 
 - Architecture decisions, complex event-driven integration: use the most capable model only if needed.
 - Logic & Debugging (distributed transactions, async flows): Use standard model.
 - Complex architectural choices only: Use most capable model.
+
+## Lecciones aprendidas — OpenSpec / Git
+
+- **Al comitear un change de OpenSpec ya archivado, usar `git add -A` (o 
+  "Stage All Changes" en VS Code) en vez de listar archivos puntuales.**
+  Si se comiteó la carpeta `openspec/changes/<nombre>/` en curso (por ejemplo, 
+  al comitear la planificación antes de implementar), y luego se archiva con 
+  `/opsx-archive`, git necesita ver TANTO la desaparición de la ubicación 
+  vieja COMO la aparición de la nueva en el mismo commit para detectarlo como 
+  un rename. Agregar solo la carpeta de `archive/` sin también incluir el 
+  borrado de la carpeta original deja archivos "Deleted" pendientes que 
+  aparecen recién en un commit posterior.
