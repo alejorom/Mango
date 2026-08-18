@@ -1,17 +1,17 @@
-# product-api Specification
+## ADDED Requirements
 
-## Purpose
+### Requirement: Product payload validation rules
+`ProductDto` payloads submitted to `POST /api/product` and `PUT /api/product` SHALL be validated server-side before any persistence occurs: `Name` SHALL be required and non-empty, and `Price` SHALL be within the range `1-1000` inclusive (mirroring the existing, previously-unenforced `[Required]`/`[Range(1, 1000)]` annotations on the `Product` entity). A payload violating either rule SHALL be rejected with HTTP 400 Bad Request describing the validation failure(s) and SHALL NOT reach the database.
 
-The Product API microservice manages the food/product catalog (create, read, update, delete) consumed directly by end users (via `Mango.Web`) and by other services such as `Mango.Services.ShoppingCartAPI`, exposing it over a partially JWT-secured REST interface backed by SQL Server.
+#### Scenario: Missing product name
+- **WHEN** a `ProductDto` payload has an empty or missing `Name`
+- **THEN** the request is rejected with HTTP 400 Bad Request and no `Product` row is persisted or updated
 
-## Requirements
+#### Scenario: Price out of range
+- **WHEN** a `ProductDto` payload has a `Price` less than 1 or greater than 1000
+- **THEN** the request is rejected with HTTP 400 Bad Request and no `Product` row is persisted or updated
 
-### Requirement: Product domain model and persistence
-The system SHALL persist products as a `Product` entity with fields `ProductId` (int, identity primary key), `Name` (string, required), `Price` (double, with a `[Range(1, 1000)]` data annotation on the entity), `Description` (string), `CategoryName` (string), and `ImageUrl` (string). Products SHALL be stored in a single `Products` table in a SQL Server database via an EF Core `AppDbContext` with one `DbSet<Product>`. The table SHALL be seeded at migration time with 4 fixed rows (`Samosa`, `Paneer Tikka`, `Sweet Pie`, `Pav Bhaji`) via `HasData` in `OnModelCreating`.
-
-#### Scenario: Product table schema
-- **WHEN** the database is migrated
-- **THEN** a `Products` table exists with columns `ProductId` (identity PK), `Name`, `Price` (float), `Description`, `CategoryName`, `ImageUrl`, and contains the 4 seeded rows
+## MODIFIED Requirements
 
 ### Requirement: Retrieve all products
 The system SHALL expose `GET /api/product` that returns every product row, mapped to `ProductDto`, wrapped in a `ResponseDto` returned via `ActionResult<ResponseDto>`. This endpoint SHALL NOT require authentication - there is no `[Authorize]` attribute on the action or on the controller class.
@@ -30,17 +30,6 @@ The system SHALL expose `GET /api/product/{id:int}` that returns the product mat
 #### Scenario: Product not found by id
 - **WHEN** any caller sends `GET /api/product/{id}` for a `ProductId` that does not exist
 - **THEN** the response is HTTP 404 Not Found with `IsSuccess = false` and a generic "product not found" message
-
-### Requirement: Product payload validation rules
-`ProductDto` payloads submitted to `POST /api/product` and `PUT /api/product` SHALL be validated server-side before any persistence occurs: `Name` SHALL be required and non-empty, and `Price` SHALL be within the range `1-1000` inclusive (mirroring the existing, previously-unenforced `[Required]`/`[Range(1, 1000)]` annotations on the `Product` entity). A payload violating either rule SHALL be rejected with HTTP 400 Bad Request describing the validation failure(s) and SHALL NOT reach the database.
-
-#### Scenario: Missing product name
-- **WHEN** a `ProductDto` payload has an empty or missing `Name`
-- **THEN** the request is rejected with HTTP 400 Bad Request and no `Product` row is persisted or updated
-
-#### Scenario: Price out of range
-- **WHEN** a `ProductDto` payload has a `Price` less than 1 or greater than 1000
-- **THEN** the request is rejected with HTTP 400 Bad Request and no `Product` row is persisted or updated
 
 ### Requirement: Create product (admin only)
 The system SHALL expose `POST /api/product` that accepts a `ProductDto`, validates it server-side, maps it to a `Product` via AutoMapper, persists it via `Products.Add` + `SaveChangesAsync`, and returns the created `ProductDto` via `ActionResult<ResponseDto>`. This endpoint SHALL require a valid JWT bearer token with role `ADMIN`. If the payload fails validation (see "Product payload validation rules"), the system SHALL return HTTP 400 Bad Request with validation error details instead of persisting anything.
@@ -124,14 +113,3 @@ The system SHALL validate JWT bearer tokens for `POST`, `PUT`, and `DELETE` acti
 #### Scenario: Public read access is deliberate, not a gap
 - **WHEN** the authentication requirements of `ProductAPIController` are reviewed
 - **THEN** the absence of `[Authorize]` on the controller class and on both `GET` actions is confirmed as an intentional design decision for a public product catalog, not an omission to be fixed
-
-### Requirement: Synchronous consumption by ShoppingCartAPI
-`Mango.Services.ShoppingCartAPI` SHALL consume this API synchronously over HTTP - via a named `HttpClient` ("Product") pointed at `ServiceUrls:ProductAPI`/`ProductAPI` (configuration key `"ProductAPI"`) - calling `GET /api/product` to resolve the `ProductDto` for each cart line item. The system SHALL NOT expose or consume any message-bus-based (Azure Service Bus / `Mango.MessageBus`) integration for product data; `Mango.Services.ProductAPI.csproj` SHALL carry no NuGet package reference or `ProjectReference` to a message bus library.
-
-#### Scenario: Cart resolves product data via HTTP
-- **WHEN** `Mango.Services.ShoppingCartAPI` builds a cart response
-- **THEN** it calls `GET /api/product` on this service over HTTP and matches returned products to cart items by `ProductId`
-
-#### Scenario: No message bus dependency
-- **WHEN** `Mango.Services.ProductAPI.csproj` is inspected
-- **THEN** it contains no reference to `Mango.MessageBus` or `Azure.Messaging.ServiceBus`
