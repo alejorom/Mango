@@ -48,19 +48,15 @@
      vía GetTokenAsync, y decidir junto con eso si agregar [Authorize] al 
      controller — ambos temas tocan el mismo modelo de seguridad y conviene 
      resolverlos juntos, después de confirmar el hallazgo de 2.3)
-- [ ] 2.3 **SOSPECHA NO CONFIRMADA (requiere verificación en runtime)**: 
-  `BackendApiAuthenticationHttpClientHandler` usa 
-  `_accessor.HttpContext.GetTokenAsync("access_token")` para propagar el JWT 
-  a las llamadas hacia ProductAPI/CouponAPI. `GetTokenAsync` está diseñado para 
-  recuperar tokens persistidos vía `SignInAsync` (flujos de cookie/OIDC) — este 
-  proyecto usa JWT Bearer puro sin `SignInAsync` en ningún lado visible del 
-  código, por lo que es sospechoso que ese token realmente se esté propagando. 
-  Si el token resultara null/vacío, las llamadas a Product/CouponAPI viajarían 
-  sin autenticación real — lo cual hoy no se manifiesta como error visible 
-  porque ambos servicios solo protegen sus endpoints de escritura (POST/PUT/
-  DELETE), y ShoppingCartAPI solo les hace GET. NO SE VERIFICÓ EN RUNTIME 
-  todavía (requeriría un breakpoint en esa línea durante un GetCart real). 
-  Se documenta como sospecha, no como hecho confirmado.  
+- [x] 2.3 VERIFICADO EN RUNTIME (2026-08-24): Se confirmó con un breakpoint en 
+  BackendApiAuthenticationHttpClientHandler que GetTokenAsync("access_token") 
+  SÍ devuelve un JWT válido y completo durante un GetCart real. La sospecha 
+  inicial (que GetTokenAsync solo funciona con flujos SignInAsync) resultó 
+  INCORRECTA — ASP.NET Core también lo popula automáticamente al validar un 
+  JWT Bearer entrante. CONCLUSIÓN: la propagación de token funciona 
+  correctamente, no requiere fix. El siguiente change de autorización 
+  (harden-shoppingcart-authorization) se enfoca solo en si agregar [Authorize] 
+  al controller, no en el token en sí. 
 
 ## 3. Publish baseline spec
 
