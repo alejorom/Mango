@@ -22,7 +22,6 @@
 
 	<ItemGroup>
 	  <ProjectReference Include="..\Mango.MessageBus\Mango.MessageBus.csproj" />
-	  <ProjectReference Include="..\Mango.Services.ShoppingCartAPI\Mango.Services.ShoppingCartAPI.csproj" />
 	</ItemGroup>
 
 </Project>
