@@ -11,7 +11,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Mango.Services.OrderAPI.Controllers
 {
-    [Route("api/[controller]")]
+    [Route("api/order")]
     [ApiController]
     public class OrderAPIController(AppDbContext db, IProductService productService, IMapper mapper, IConfiguration configuration, IMessageBus messageBus) : ControllerBase
     {
