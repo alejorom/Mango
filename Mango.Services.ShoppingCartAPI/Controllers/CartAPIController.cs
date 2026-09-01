@@ -24,7 +24,7 @@ namespace Mango.Services.ShoppingCartAPI.Controllers
         private IConfiguration _configuration = configuration;
 
         [HttpGet("GetCart/{userId}")]
-        public async Task<ResponseDto> GetCart(string userId)
+        public async Task<ActionResult<ResponseDto>> GetCart(string userId)
         {
             try
             {
@@ -73,12 +73,13 @@ namespace Mango.Services.ShoppingCartAPI.Controllers
             {
                 _response.IsSuccess = false;
                 _response.Message = ex.Message;
+                return StatusCode(500, _response);
             }
             return _response;
         }
 
         [HttpPost("ApplyCoupon")]
-        public async Task<object> ApplyCoupon([FromBody] CartDto cartDto)
+        public async Task<ActionResult<ResponseDto>> ApplyCoupon([FromBody] CartDto cartDto)
         {
             try
             {
@@ -88,16 +89,17 @@ namespace Mango.Services.ShoppingCartAPI.Controllers
                 await _db.SaveChangesAsync();
                 _response.Result = true;
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 _response.IsSuccess = false;
-                _response.Message = ex.ToString();
+                _response.Message = "An unexpected error occurred";
+                return StatusCode(500, _response);
             }
             return _response;
         }
 
         [HttpPost("CartUpsert")]
-        public async Task<ResponseDto> CartUpsert(CartDto cartDto)
+        public async Task<ActionResult<ResponseDto>> CartUpsert(CartDto cartDto)
         {
             try
             {
@@ -142,12 +144,13 @@ namespace Mango.Services.ShoppingCartAPI.Controllers
             {
                 _response.Message = ex.Message.ToString();
                 _response.IsSuccess = false;
+                return StatusCode(500, _response);
             }
             return _response;
         }
 
         [HttpPost("RemoveCart")]
-        public async Task<ResponseDto> RemoveCart([FromBody] int cartDetailsId)
+        public async Task<ActionResult<ResponseDto>> RemoveCart([FromBody] int cartDetailsId)
         {
             try
             {
@@ -158,7 +161,7 @@ namespace Mango.Services.ShoppingCartAPI.Controllers
                 {
                     _response.IsSuccess = false;
                     _response.Message = $"Cart item {cartDetailsId} not found.";
-                    return _response; // upgraded to NotFound(_response) in task 4.3
+                    return NotFound(_response);
                 }
 
                 int totalCountofCartItem = _db.CartDetails.Where(u => u.CartHeaderId == cartDetails.CartHeaderId).Count();
@@ -178,22 +181,24 @@ namespace Mango.Services.ShoppingCartAPI.Controllers
             {
                 _response.Message = ex.Message.ToString();
                 _response.IsSuccess = false;
+                return StatusCode(500, _response);
             }
             return _response;
         }
 
         [HttpPost("EmailCartRequest")]
-        public async Task<object> EmailCartRequest([FromBody] CartDto cartDto)
+        public async Task<ActionResult<ResponseDto>> EmailCartRequest([FromBody] CartDto cartDto)
         {
             try
             {
                 await _messageBus.PublishMessage(cartDto, _configuration.GetValue<string>("TopicAndQueueNames:EmailShoppingCartQueue"));
                 _response.Result = true;
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 _response.IsSuccess = false;
-                _response.Message = ex.ToString();
+                _response.Message = "An unexpected error occurred";
+                return StatusCode(500, _response);
             }
             return _response;
         }

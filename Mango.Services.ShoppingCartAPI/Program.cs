@@ -61,7 +61,6 @@ builder.Services.AddSwaggerGen(option =>
 
 builder.AddAppAuthetication();
 
-builder.Services.AddAuthentication();
 builder.Services.AddAuthorization();
 
 var app = builder.Build();
