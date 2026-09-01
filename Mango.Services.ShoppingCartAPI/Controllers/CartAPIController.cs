@@ -40,13 +40,26 @@ namespace Mango.Services.ShoppingCartAPI.Controllers
                 foreach (var item in cart.CartDetails)
                 {
                     item.Product = productDtos.FirstOrDefault(u => u.ProductId == item.ProductId);
-                    cart.CartHeader.CartTotal += (item.Count * item.Product.Price);
+                    if (item.Product != null)
+                    {
+                        cart.CartHeader.CartTotal += (item.Count * item.Product.Price);
+                    }
                 }
 
-                // Apply coupon if any
-                if (!string.IsNullOrEmpty(cart.CartHeader.CouponCode))
+                var unresolvedIds = cart.CartDetails
+                    .Where(u => u.Product == null)
+                    .Select(u => u.ProductId)
+                    .ToList();
+
+                if (unresolvedIds.Any())
                 {
-                    CouponDto coupon = await _couponService.GetCoupon(cart.CartHeader.CouponCode);
+                    _response.IsSuccess = false;
+                    _response.Message = $"Products not found in catalog: {string.Join(", ", unresolvedIds)}";
+                }
+
+                if (!unresolvedIds.Any() && !string.IsNullOrEmpty(cart.CartHeader.CouponCode))
+                {
+                    CouponDto? coupon = await _couponService.GetCoupon(cart.CartHeader.CouponCode);
                     if (coupon != null && cart.CartHeader.CartTotal > coupon.MinAmount)
                     {
                         cart.CartHeader.CartTotal -= coupon.DiscountAmount;
@@ -138,8 +151,15 @@ namespace Mango.Services.ShoppingCartAPI.Controllers
         {
             try
             {
-                CartDetails cartDetails = _db.CartDetails
-                   .First(u => u.CartDetailsId == cartDetailsId);
+                CartDetails? cartDetails = _db.CartDetails
+                    .FirstOrDefault(u => u.CartDetailsId == cartDetailsId);
+
+                if (cartDetails == null)
+                {
+                    _response.IsSuccess = false;
+                    _response.Message = $"Cart item {cartDetailsId} not found.";
+                    return _response; // upgraded to NotFound(_response) in task 4.3
+                }
 
                 int totalCountofCartItem = _db.CartDetails.Where(u => u.CartHeaderId == cartDetails.CartHeaderId).Count();
                 _db.CartDetails.Remove(cartDetails);
