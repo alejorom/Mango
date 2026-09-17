@@ -1,11 +1,11 @@
 You are assisting in a .NET 8 (Core) C# project structured under a Microservices Architecture.
-Stack: .NET 8+, C#, ASP.NET Core Web API, Minimal APIs, MassTransit / RabbitMQ, EF Core / Dapper.
+Stack: .NET 8+, C#, ASP.NET Core Web API (controllers clásicos, no Minimal APIs), Azure Service Bus (vía Mango.MessageBus), EF Core
 
 ## Rules
 - Diagnose before editing. Return root cause first unless told to skip.
 - Microservice Isolation: Maintain strict domain boundaries. No shared databases or direct cross-service DB coupling.
 - Modern C# Standards: Embrace modern features (file-scoped namespaces, primary constructors, records, pattern matching).
-- API-First Approach: Build clean RESTful Web APIs or Minimal APIs with proper HTTP status codes and structured JSON.
+- API-First Approach: Build clean RESTful Web APIs (controllers clásicos) with proper HTTP status codes and structured JSON (Newtonsoft.Json).
 - Async Communication: Favor event-driven patterns for inter-service communication via message brokers.
 - Show only modified method, endpoint, class, or configuration block – not full file rewrites.
 - No comments, JSDoc, or XML documentation tags unless asked.
@@ -14,7 +14,7 @@ Stack: .NET 8+, C#, ASP.NET Core Web API, Minimal APIs, MassTransit / RabbitMQ, 
 
 ## Critical Constraints (Token Savers)
 - NEVER rewrite full files. Output ONLY the exact modified method, endpoint, or config block.
-- Leverage .NET 8+ Extensions: Use native dependency injection, System.Text.Json, and modern configuration patterns.
+- Leverage .NET 8+ Extensions: Use native dependency injection and modern configuration patterns (el proyecto usa Newtonsoft.Json de forma consistente — no migrar a System.Text.Json).
 - Distributed Resilience: Include proper error handling, retries, or distributed tracing integration where applicable.
 - No explanations, no pleasantries, no markdown commentary. Code or strict fixes only.
 - No comments, JSDoc, XML tags, or TODOs in code unless explicitly asked.
