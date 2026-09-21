@@ -22,29 +22,52 @@ namespace Mango.Web.Service
             });
         }
 
-        public Task<ResponseDto?> CreateStripeSession(StripeRequestDto stripeRequestDto)
+        public async Task<ResponseDto?> CreateStripeSession(StripeRequestDto stripeRequestDto)
         {
-            throw new NotImplementedException();
+            return await _baseService.SendAsync(new RequestDto()
+            {
+                ApiType = SD.ApiType.POST,
+                Data = stripeRequestDto,
+                Url = SD.OrderAPIBase + "/api/order/CreateStripeSession"
+            });
         }
 
-        public Task<ResponseDto?> GetAllOrder(string? userId)
+        public async Task<ResponseDto?> GetAllOrder(string? userId)
         {
-            throw new NotImplementedException();
+            return await _baseService.SendAsync(new RequestDto()
+            {
+                ApiType = SD.ApiType.GET,
+                Url = SD.OrderAPIBase + "/api/order/GetOrders?userId=" + userId
+            });
         }
 
-        public Task<ResponseDto?> GetOrder(int orderId)
+        public async Task<ResponseDto?> GetOrder(int orderId)
         {
-            throw new NotImplementedException();
+            return await _baseService.SendAsync(new RequestDto()
+            {
+                ApiType = SD.ApiType.GET,
+                Url = SD.OrderAPIBase + "/api/order/GetOrder/" + orderId
+            });
         }
 
-        public Task<ResponseDto?> UpdateOrderStatus(int orderId, string newStatus)
+        public async Task<ResponseDto?> UpdateOrderStatus(int orderId, string newStatus)
         {
-            throw new NotImplementedException();
+            return await _baseService.SendAsync(new RequestDto()
+            {
+                ApiType = SD.ApiType.POST,
+                Data = newStatus,
+                Url = SD.OrderAPIBase + "/api/order/UpdateOrderStatus/" + orderId
+            });
         }
 
-        public Task<ResponseDto?> ValidateStripeSession(int orderHeaderId)
+        public async Task<ResponseDto?> ValidateStripeSession(int orderHeaderId)
         {
-            throw new NotImplementedException();
+            return await _baseService.SendAsync(new RequestDto()
+            {
+                ApiType = SD.ApiType.POST,
+                Data = orderHeaderId,
+                Url = SD.OrderAPIBase + "/api/order/ValidateStripeSession"
+            });
         }
     }
 }
