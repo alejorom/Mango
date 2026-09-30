@@ -1,4 +1,5 @@
 ﻿using Mango.Services.EMailAPI.Data;
+using Mango.Services.EMailAPI.Message;
 using Mango.Services.EMailAPI.Models;
 using Mango.Services.EMailAPI.Models.Dto;
 using Mango.Services.EMailAPI.Service.IService;
@@ -9,7 +10,7 @@ namespace Mango.Services.EMailAPI.Service
 {
     public class EmailService : IEmailService
     {
-        private DbContextOptions<AppDbContext> _dbOptions;
+        private readonly DbContextOptions<AppDbContext> _dbOptions;
 
         public EmailService(DbContextOptions<AppDbContext> dbOptions)
         {
@@ -18,7 +19,7 @@ namespace Mango.Services.EMailAPI.Service
 
         public async Task EmailCartAndLog(CartDto cartDto)
         {
-            StringBuilder message = new StringBuilder();
+            StringBuilder message = new();
 
             message.AppendLine("<br/>Cart Email Requested ");
             message.AppendLine("<br/>Total " + cartDto.CartHeader.CartTotal);
@@ -33,6 +34,12 @@ namespace Mango.Services.EMailAPI.Service
             message.Append("</ul>");
 
             await LogAndEmail(message.ToString(), cartDto.CartHeader.Email);
+        }
+
+        public async Task LogOrderPlaced(RewardsMessage rewardsDto)
+        {
+            string message = "New Order Placed. <br/> Order ID : " + rewardsDto.OrderId;
+            await LogAndEmail(message, "dotnetmastery@gmail.com");
         }
 
         public async Task RegisterUserEmailAndLog(string email)
