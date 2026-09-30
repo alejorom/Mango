@@ -1,4 +1,5 @@
 ﻿using Azure.Messaging.ServiceBus;
+using Mango.Services.EMailAPI.Message;
 using Mango.Services.EMailAPI.Models.Dto;
 using Mango.Services.EMailAPI.Service.IService;
 using Newtonsoft.Json;
@@ -13,22 +14,28 @@ namespace Mango.Services.EMailAPI.Service
         private readonly string registerUserQueue;
         private readonly IConfiguration _configuration;
         private readonly EmailService _emailService;
-
-        private ServiceBusProcessor _emailCartProcessor;
-        private ServiceBusProcessor _registerUserProcessor;
+        private readonly string orderCreated_Topic;
+        private readonly string orderCreated_Email_Subscription;
+        private readonly ServiceBusProcessor _emailOrderPlacedProcessor;
+        private readonly ServiceBusProcessor _emailCartProcessor;
+        private readonly ServiceBusProcessor _registerUserProcessor;
 
         public AzureServiceBusConsumer(IConfiguration configuration, EmailService emailService)
         {
-            _configuration = configuration;
             _emailService = emailService;
+            _configuration = configuration;
 
             serviceBusConnectionString = _configuration.GetValue<string>("ServiceBusConnectionString");
+
             emailCartQueue = _configuration.GetValue<string>("TopicAndQueueNames:EmailShoppingCartQueue");
             registerUserQueue = _configuration.GetValue<string>("TopicAndQueueNames:RegisterUserQueue");
+            orderCreated_Topic = _configuration.GetValue<string>("TopicAndQueueNames:OrderCreatedTopic");
+            orderCreated_Email_Subscription = _configuration.GetValue<string>("TopicAndQueueNames:OrderCreated_Email_Subscription");
 
             var client = new ServiceBusClient(serviceBusConnectionString);
             _emailCartProcessor = client.CreateProcessor(emailCartQueue);
             _registerUserProcessor = client.CreateProcessor(registerUserQueue);
+            _emailOrderPlacedProcessor = client.CreateProcessor(orderCreated_Topic, orderCreated_Email_Subscription);
         }
 
         public async Task Start()
@@ -40,12 +47,23 @@ namespace Mango.Services.EMailAPI.Service
             _registerUserProcessor.ProcessMessageAsync += OnUserRegisterRequestReceived;
             _registerUserProcessor.ProcessErrorAsync += ErrorHandler;
             await _registerUserProcessor.StartProcessingAsync();
+
+            _emailOrderPlacedProcessor.ProcessMessageAsync += OnOrderPlacedRequestReceived;
+            _emailOrderPlacedProcessor.ProcessErrorAsync += ErrorHandler;
+            await _emailOrderPlacedProcessor.StartProcessingAsync();
         }
+
 
         public async Task Stop()
         {
             await _emailCartProcessor.StopProcessingAsync();
             await _emailCartProcessor.DisposeAsync();
+
+            await _registerUserProcessor.StopProcessingAsync();
+            await _registerUserProcessor.DisposeAsync();
+
+            await _emailOrderPlacedProcessor.StopProcessingAsync();
+            await _emailOrderPlacedProcessor.DisposeAsync();
         }
 
         private async Task OnEmailCartRequestReceived(ProcessMessageEventArgs args)
@@ -64,6 +82,26 @@ namespace Mango.Services.EMailAPI.Service
             {
                 throw;
             }
+
+        }
+
+        private async Task OnOrderPlacedRequestReceived(ProcessMessageEventArgs args)
+        {
+            // This is where you will receive message
+            var message = args.Message;
+            var body = Encoding.UTF8.GetString(message.Body);
+
+            RewardsMessage objMessage = JsonConvert.DeserializeObject<RewardsMessage>(body);
+            try
+            {
+                await _emailService.LogOrderPlaced(objMessage);
+                await args.CompleteMessageAsync(args.Message);
+            }
+            catch (Exception ex)
+            {
+                throw;
+            }
+
         }
 
         private async Task OnUserRegisterRequestReceived(ProcessMessageEventArgs args)
@@ -83,7 +121,7 @@ namespace Mango.Services.EMailAPI.Service
             }
         }
 
-        private Task ErrorHandler(ProcessErrorEventArgs args)
+        private static Task ErrorHandler(ProcessErrorEventArgs args)
         {
             Console.WriteLine(args.Exception.ToString());
             return Task.CompletedTask;
