@@ -1,0 +1,14 @@
+{
+  "version": "1.0.0",
+  "updatedAt": "2026-10-02T21:13:26.561Z",
+  "totals": {
+    "events": 0,
+    "started": 0,
+    "completed": 0,
+    "failedBuilds": 0,
+    "avgCoverageLines": 0,
+    "avgElapsedMs": 0
+  },
+  "byFramework": {},
+  "events": []
+}
