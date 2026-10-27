@@ -14,7 +14,12 @@ builder.Services.AddDbContext<AppDbContext>(option =>
 
 var optionBuilder = new DbContextOptionsBuilder<AppDbContext>();
 optionBuilder.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection"));
-builder.Services.AddSingleton(new EmailService(optionBuilder.Options));
+
+builder.Services.AddSingleton(provider =>
+{
+    var logger = provider.GetRequiredService<ILogger<EmailService>>();
+    return new EmailService(optionBuilder.Options, logger);
+});
 
 builder.Services.AddSingleton<IAzureServiceBusConsumer, AzureServiceBusConsumer>();
 

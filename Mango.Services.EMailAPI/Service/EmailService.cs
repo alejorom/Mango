@@ -4,6 +4,7 @@ using Mango.Services.EMailAPI.Models;
 using Mango.Services.EMailAPI.Models.Dto;
 using Mango.Services.EMailAPI.Service.IService;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using System.Text;
 
 namespace Mango.Services.EMailAPI.Service
@@ -11,10 +12,12 @@ namespace Mango.Services.EMailAPI.Service
     public class EmailService : IEmailService
     {
         private readonly DbContextOptions<AppDbContext> _dbOptions;
+        private readonly ILogger<EmailService> _logger;
 
-        public EmailService(DbContextOptions<AppDbContext> dbOptions)
+        public EmailService(DbContextOptions<AppDbContext> dbOptions, ILogger<EmailService> logger)
         {
             _dbOptions = dbOptions;
+            _logger = logger;
         }
 
         public async Task EmailCartAndLog(CartDto cartDto)
@@ -25,13 +28,28 @@ namespace Mango.Services.EMailAPI.Service
             message.AppendLine("<br/>Total " + cartDto.CartHeader.CartTotal);
             message.Append("<br/>");
             message.Append("<ul>");
+            
+            int skippedItemsCount = 0;
             foreach (var item in cartDto.CartDetails)
             {
-                message.Append("<li>");
-                message.Append(item.Product.Name + " x " + item.Count);
-                message.Append("</li>");
+                if (item.Product != null)
+                {
+                    message.Append("<li>");
+                    message.Append(item.Product.Name + " x " + item.Count);
+                    message.Append("</li>");
+                }
+                else
+                {
+                    skippedItemsCount++;
+                }
             }
+            
             message.Append("</ul>");
+            
+            if (skippedItemsCount > 0)
+            {
+                message.Append("<br/>[" + skippedItemsCount + " product(s) could not be included]");
+            }
 
             await LogAndEmail(message.ToString(), cartDto.CartHeader.Email);
         }
@@ -48,7 +66,7 @@ namespace Mango.Services.EMailAPI.Service
             await LogAndEmail(message, "<<uncorreo>>@<<dominio>>.com");
         }
 
-        private async Task<bool> LogAndEmail(string message, string email)
+        private async Task LogAndEmail(string message, string email)
         {
             try
             {
@@ -61,11 +79,11 @@ namespace Mango.Services.EMailAPI.Service
                 await using var _db = new AppDbContext(_dbOptions);
                 await _db.EmailLoggers.AddAsync(emailLog);
                 await _db.SaveChangesAsync();
-                return true;
             }
             catch (Exception ex)
             {
-                return false;
+                _logger.LogError(ex, "DB persistence failed for email: {Email}", email);
+                throw;
             }
         }
     }
