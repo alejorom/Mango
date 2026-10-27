@@ -5,11 +5,17 @@ EmailAPI consumes events from Azure Service Bus and maintains an audit log of no
 ## Requirements
 
 ### Requirement: Consume cart notification messages
-The system SHALL listen to `EmailShoppingCartQueue` and process cart notification requests. When a cart email is requested, the system SHALL construct an HTML message containing cart items and totals.
+The system SHALL listen to `EmailShoppingCartQueue` and process cart notification requests. When a cart email is requested, the system SHALL construct an HTML message containing cart items and totals, skipping any items with null Product reference.
 
 #### Scenario: Cart message received
-- **WHEN** a CartDto is published to EmailShoppingCartQueue
-- **THEN** system deserializes CartDto, builds HTML message, and logs to database
+- **WHEN** a CartDto is published to EmailShoppingCartQueue with non-null Product references
+- **THEN** system deserializes CartDto, builds HTML message with all items, and logs to database
+
+#### Scenario: Cart message received with null products
+- **WHEN** a CartDto contains items with null Product (e.g., from ShoppingCartAPI bug or partial deploy)
+- **THEN** system skips null items and includes only valid products in HTML message
+- **AND** system appends note: "[Some products could not be included]"
+- **AND** message is processed and logged without throwing NullReferenceException
 
 ### Requirement: Consume user registration notifications
 The system SHALL listen to `RegisterUserQueue` and process user registration confirmations. When a user registers, the system SHALL construct a notification message with the email address.
@@ -26,7 +32,7 @@ The system SHALL listen to `OrderCreatedTopic/OrderCreated_Email_Subscription` a
 - **THEN** system deserializes RewardsMessage, builds notification message, and logs to database
 
 ### Requirement: Audit log persistence
-The system SHALL persist every notification event to an EmailLogger table, recording email address, message content, and timestamp.
+The system SHALL persist every notification event to an EmailLogger table, recording email address, message content, and timestamp. If database persistence fails, the system SHALL log the exception and propagate an error to the message handler.
 
 #### Scenario: Event logged successfully
 - **WHEN** a message is consumed
@@ -34,9 +40,10 @@ The system SHALL persist every notification event to an EmailLogger table, recor
 
 #### Scenario: Logging failure (silently swallowed)
 - **WHEN** database persistence fails (exception in AppDbContext.SaveChangesAsync)
-- **THEN** EmailService.LogAndEmail catches, returns false, and does NOT throw or log
-- **AND** callers (EmailCartAndLog, LogOrderPlaced, RegisterUserEmailAndLog) ignore return value
-- **AND** message is CompleteMessageAsync'd despite persistence failure (data loss)
+- **THEN** EmailService.LogAndEmail logs exception via ILogger<EmailService>
+- **AND** EmailService.LogAndEmail throws exception (propagates to handler)
+- **AND** handler does NOT call CompleteMessageAsync
+- **AND** message remains unacknowledged, Service Bus retries or dead-letters per configuration
 
 ### Requirement: No REST API exposure
 The system SHALL NOT expose any HTTP endpoints. All interaction is via Service Bus message consumption.
