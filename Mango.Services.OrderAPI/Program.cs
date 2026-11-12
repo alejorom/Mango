@@ -9,7 +9,7 @@ using Mango.Services.OrderAPI.Service.IService;
 using Mango.Services.OrderAPI.Utility;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.OpenApi.Models;
+using Microsoft.OpenApi;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -31,29 +31,27 @@ builder.Services.AddHttpClient("Product", u => u.BaseAddress =
 builder.Services.AddControllers();
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
+
 builder.Services.AddSwaggerGen(option =>
 {
-    option.AddSecurityDefinition(name: JwtBearerDefaults.AuthenticationScheme, securityScheme: new OpenApiSecurityScheme
-    {
-        Name = "Authorization",
-        Description = "Enter the Bearer Authorization string as following: `Bearer Generated-JWT-Token`",
-        In = ParameterLocation.Header,
-        Type = SecuritySchemeType.ApiKey,
-        Scheme = "Bearer"
-    });
-    option.AddSecurityRequirement(new OpenApiSecurityRequirement
-    {
+    option.AddSecurityDefinition(
+        JwtBearerDefaults.AuthenticationScheme,
+        new OpenApiSecurityScheme
         {
-            new OpenApiSecurityScheme
-            {
-                Reference= new OpenApiReference
-                {
-                    Type=ReferenceType.SecurityScheme,
-                    Id=JwtBearerDefaults.AuthenticationScheme
-                }
-            }, new string[]{}
-        }
-    });
+            Name = "Authorization",
+            Description = "JWT Bearer authentication",
+            Type = SecuritySchemeType.Http,
+            Scheme = "bearer",
+            BearerFormat = "JWT"
+        });
+
+    option.AddSecurityRequirement(document =>
+        new OpenApiSecurityRequirement
+        {
+            [new OpenApiSecuritySchemeReference(
+                JwtBearerDefaults.AuthenticationScheme,
+                document)] = new List<string>()
+        });
 });
 
 builder.AddAppAuthetication();

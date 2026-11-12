@@ -1,5 +1,4 @@
 ﻿using AutoMapper;
-using Azure;
 using Mango.Services.CouponAPI.Data;
 using Mango.Services.CouponAPI.Models;
 using Mango.Services.CouponAPI.Models.Dto;
