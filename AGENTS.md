@@ -1,50 +1,23 @@
-You are assisting in a .NET 8 (Core) C# project structured under a Microservices Architecture.
-Stack: .NET 8+, C#, ASP.NET Core Web API (controllers clásicos, no Minimal APIs), Azure Service Bus (vía Mango.MessageBus), EF Core
+﻿# Instrucciones comunes para agentes
 
-## Rules
-- Diagnose before editing. Return root cause first unless told to skip.
-- Microservice Isolation: Maintain strict domain boundaries. No shared databases or direct cross-service DB coupling.
-- Modern C# Standards: Embrace modern features (file-scoped namespaces, primary constructors, records, pattern matching).
-- API-First Approach: Build clean RESTful Web APIs (controllers clásicos) with proper HTTP status codes and structured JSON (Newtonsoft.Json).
-- Async Communication: Favor event-driven patterns for inter-service communication via message brokers.
-- Show only modified method, endpoint, class, or configuration block – not full file rewrites.
-- No comments, JSDoc, or XML documentation tags unless asked.
-- No suggestions beyond the task scope. State change. Show fix. Stop.
-- Limit analysis to max 6 bullets.
+## Contexto y arquitectura
 
-## Critical Constraints (Token Savers)
-- NEVER rewrite full files. Output ONLY the exact modified method, endpoint, or config block.
-- Leverage .NET 8+ Extensions: Use native dependency injection and modern configuration patterns (el proyecto usa Newtonsoft.Json de forma consistente — no migrar a System.Text.Json).
-- Distributed Resilience: Include proper error handling, retries, or distributed tracing integration where applicable.
-- No explanations, no pleasantries, no markdown commentary. Code or strict fixes only.
-- No comments, JSDoc, XML tags, or TODOs in code unless explicitly asked.
-- Max 3 bullet points for root-cause analysis. If the fix is obvious, skip analysis entirely.
+Mango apunta a .NET 11 y usa ASP.NET Core, EF Core 11 y SQL Server. La solución contiene Mango.Web MVC, Auth, Coupon, Product, ShoppingCart, Email, Order, Reward y Mango.MessageBus. Comprueba versiones y configuración en cada proyecto.
 
-## Output
-- Drop filler: no "Sure!", "Happy to help", "Of course", "Certainly".
-- Zero filler. Do NOT say "Sure!", "Here is the fix", "Hope this helps", or "Certainly".
-- Start your response directly with the fix or the code block.
-- Short synonyms: fix > "implement a solution for", bug > "issue".
-- Short terms only: use "fix" instead of "implement a solution for", "bug" instead of "issue".
-- Ensure code blocks are 100% copy-paste safe.
-- No em-dashes or decorative Unicode.
+Mantén los límites de dominio: cada servicio administra sus datos; no introduzcas bases compartidas ni acceso directo al DbContext de otro servicio. Conserva controladores clásicos en las APIs. Respeta los flujos HTTP y Azure Service Bus existentes. No rediseñes la arquitectura fuera del alcance solicitado.
 
-## Model selection
-- Mechanical tasks (rename, boilerplate, serialization settings): use smallest available model.
-- Simple tasks (syntax, routing, DTO updates): Use smallest/fastest model.
-- Exploration and synthesis (diagnose, microservice refactor, explain): use standard model.
-- Architecture decisions, complex event-driven integration: use the most capable model only if needed.
-- Logic & Debugging (distributed transactions, async flows): Use standard model.
-- Complex architectural choices only: Use most capable model.
+## Seguridad y calidad
 
-## Lecciones aprendidas — OpenSpec / Git
+Diagnostica antes de editar. Revisa autenticación, autorización y propiedad de recursos por endpoint; no supongas una política uniforme. Mantén los contratos, valida entradas, devuelve códigos HTTP apropiados y no expongas detalles internos de excepciones. Aplica manejo de fallos, reintentos o trazabilidad cuando corresponda y dentro del alcance autorizado.
 
-- **Al comitear un change de OpenSpec ya archivado, usar `git add -A` (o 
-  "Stage All Changes" en VS Code) en vez de listar archivos puntuales.**
-  Si se comiteó la carpeta `openspec/changes/<nombre>/` en curso (por ejemplo, 
-  al comitear la planificación antes de implementar), y luego se archiva con 
-  `/opsx-archive`, git necesita ver TANTO la desaparición de la ubicación 
-  vieja COMO la aparición de la nueva en el mismo commit para detectarlo como 
-  un rename. Agregar solo la carpeta de `archive/` sin también incluir el 
-  borrado de la carpeta original deja archivos "Deleted" pendientes que 
-  aparecen recién en un commit posterior.
+Newtonsoft.Json se usa explícitamente en clientes y mensajería; no migres sus usos existentes sin solicitud. Los controladores usan AddControllers sin configurar explícitamente Newtonsoft como serializador MVC. Usa las convenciones del servicio afectado y características modernas de C# cuando sean apropiadas. No uniformes firmas o comportamiento sin un cambio aprobado. No agregues comentarios ni documentación XML salvo solicitud.
+
+## SDD, trazabilidad y verificación
+
+Revisa las especificaciones y cambios OpenSpec relevantes antes de modificar comportamiento. Distingue comportamiento implementado de mejoras propuestas y conserva trazabilidad entre requisitos, implementación y verificación. No alteres artefactos archivados ni recursos generados sin necesidad justificada. Verifica los cambios con pruebas apropiadas y comunica límites y fallos.
+
+Al comitear un change OpenSpec archivado, usa `git add -A` o Stage All Changes para incluir tanto la desaparición de la ubicación anterior como la aparición de la nueva y permitir que Git detecte el rename. Revisa previamente todos los cambios incluidos y respeta el alcance autorizado.
+
+## Comunicación
+
+Responde de forma directa y concisa, adaptando el formato al entregable solicitado. Para cambios de código muestra solo los bloques relevantes cuando sea útil. No agregues sugerencias fuera del alcance.

@@ -1,3 +1,23 @@
+﻿# Mango
+
+Mango es una aplicación de comercio electrónico con frontend ASP.NET Core MVC y microservicios. Los nueve proyectos de la solución apuntan a `net11.0`; las APIs declaran ASP.NET Core y EF Core 11 con SQL Server. Las versiones declaradas no acreditan por sí mismas la ejecución de la solución.
+
+## Componentes y comportamiento actual
+
+- `Mango.Web`: frontend MVC y clientes HTTP.
+- `AuthAPI`: usuarios, Identity y emisión JWT. `CouponAPI`: cupones e integración con Stripe. `ProductAPI`: catálogo con lecturas públicas.
+- `ShoppingCartAPI`: carrito; consulta Product y Coupon por HTTP. Sus acciones no exigen autorización actualmente, una mejora pendiente de definición.
+- `OrderAPI`: órdenes y pagos con Stripe. `RewardAPI`: consumidor de eventos de recompensas. `EMailAPI`: consumidor que registra notificaciones.
+- `Mango.MessageBus`: publicación mediante Azure Service Bus. Auth y ShoppingCart publican mensajes para Email; Order publica eventos consumidos por Reward.
+
+Los servicios no comparten necesariamente los mismos contratos de respuesta ni políticas de autorización. Newtonsoft.Json se usa explícitamente en clientes y mensajería; los controladores no configuran explícitamente Newtonsoft como serializador MVC. Las claves de configuración y URLs deben revisarse por servicio. Algunos servicios aplican migraciones al arrancar; Coupon define `ApplyMigration` sin invocarlo. No se encontraron proyectos de pruebas en la solución.
+
+Las reglas comunes para agentes están en `AGENTS.md`. Las especificaciones vigentes y el historial de cambios están en `openspec/`. Order y Reward aún no tienen baseline OpenSpec. Para compilar se requiere un SDK compatible con .NET 11; consulta la configuración de cada servicio antes de ejecutarlo.
+
+## Archivo histórico: prompts de documentación
+
+El texto siguiente conserva prompts usados durante etapas anteriores. Sus referencias tecnológicas y requisitos describen el contexto histórico, no necesariamente el estado actual.
+
 Prompt usados para documentar especificaciones SDD
 
 # Mango.Services.CouponAPI
