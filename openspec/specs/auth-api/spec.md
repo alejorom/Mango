@@ -91,7 +91,7 @@ The system SHALL expose `POST /api/auth/AssignRole` accepting a `RegistrationReq
 - **WHEN** a caller with a valid JWT bearer token that lacks the `ADMIN` role sends `POST /api/auth/AssignRole`
 - **THEN** the request is rejected before reaching the controller action with HTTP 403 Forbidden
 
-### Requirement: No self-authentication or endpoint-level authorization
+### Requirement: JWT authentication and endpoint authorization
 The system SHALL authenticate `POST /api/auth/AssignRole` using JWT bearer tokens validated against `ApiSettings:JwtOptions:Secret` (signing key), `ApiSettings:JwtOptions:Issuer`, and `ApiSettings:JwtOptions:Audience` from configuration, and SHALL require a `role` claim equal to `ADMIN` for that endpoint. `POST /api/auth/register` and `POST /api/auth/login` SHALL remain reachable without any bearer token, since they are the entry points for unauthenticated users to obtain credentials and a token.
 
 #### Scenario: AssignRole requires an ADMIN token
@@ -110,7 +110,7 @@ The system SHALL publish the registered user's email to a message queue on succe
 - **THEN** `MessageBus.PublishMessage` throws `ArgumentNullException` when constructing the `ServiceBusClient`, and this exception is not caught by `AuthAPIController.Register` (it propagates as an unhandled exception, distinct from the try/catch inside `AuthService.Register`)
 
 ### Requirement: External dependencies
-The system SHALL depend on: ASP.NET Core Identity (`Microsoft.AspNetCore.Identity.EntityFrameworkCore`), EF Core with SQL Server (`Microsoft.EntityFrameworkCore.SqlServer`), JWT Bearer token creation (`Microsoft.AspNetCore.Authentication.JwtBearer`, used only for its token-handling types, not for request validation middleware), AutoMapper, Swashbuckle for OpenAPI/Swagger, and a project reference to `Mango.MessageBus` for publishing registration events. Its SQL Server database is configured via `ConnectionStrings:DefaultConnection` pointing at a local database named `Mango_Auth`.
+The system SHALL depend on: ASP.NET Core Identity (`Microsoft.AspNetCore.Identity.EntityFrameworkCore`), EF Core with SQL Server (`Microsoft.EntityFrameworkCore.SqlServer`), JWT Bearer authentication (`Microsoft.AspNetCore.Authentication.JwtBearer`, used for token handling and request validation middleware), AutoMapper, Swashbuckle for OpenAPI/Swagger, and a project reference to `Mango.MessageBus` for publishing registration events. Its SQL Server database is configured via `ConnectionStrings:DefaultConnection` pointing at a local database named `Mango_Auth`.
 
 #### Scenario: Pending migrations applied at startup
 - **WHEN** the application starts
