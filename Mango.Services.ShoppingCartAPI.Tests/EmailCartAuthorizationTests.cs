@@ -152,6 +152,42 @@ public class EmailCartAuthorizationTests
         Assert.Equal(0, bus.Calls);
     }
 
+    [Fact]
+    public async Task RejectedOwnershipAndMalformedEmailRequestsNeverCallDependencies()
+    {
+        await using var db = CreateDb();
+        db.CartHeaders.Add(new CartHeader { UserId = other, CouponCode = "SAVE" });
+        await db.SaveChangesAsync();
+        var products = new CountingProducts();
+        var coupons = new CountingCoupons();
+        var bus = new Bus();
+        var claims = new[] { new Claim(JwtRegisteredClaimNames.Sub, owner), new Claim(JwtRegisteredClaimNames.Email, "owner@example.invalid"), new Claim(ClaimTypes.Role, "ADMIN") };
+        var controller = new CartAPIController(db, MappingConfig.RegisterMaps().CreateMapper(), products, coupons, bus, new ConfigurationBuilder().Build())
+        {
+            ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext { User = new ClaimsPrincipal(new ClaimsIdentity(claims, "test")) } }
+        };
+
+        Assert.IsType<NotFoundObjectResult>((await controller.EmailCartRequest(Request(other))).Result);
+        Assert.IsType<NotFoundObjectResult>((await controller.EmailCartRequest(Request(owner))).Result);
+        Assert.IsType<BadRequestObjectResult>((await controller.EmailCartRequest(Request("malformed"))).Result);
+        Assert.Equal(0, products.Calls);
+        Assert.Equal(0, coupons.Calls);
+        Assert.Equal(0, bus.Calls);
+        Assert.Equal("SAVE", (await db.CartHeaders.SingleAsync()).CouponCode);
+        Assert.DoesNotContain(db.ChangeTracker.Entries(), e => e.State != EntityState.Unchanged);
+    }
+
+    private sealed class CountingProducts : IProductService
+    {
+        public int Calls { get; private set; }
+        public Task<IEnumerable<ProductDto>> GetProducts() { Calls++; return Task.FromResult<IEnumerable<ProductDto>>(Array.Empty<ProductDto>()); }
+    }
+    private sealed class CountingCoupons : ICouponService
+    {
+        public int Calls { get; private set; }
+        public Task<CouponDto?> GetCoupon(string couponCode) { Calls++; return Task.FromResult<CouponDto?>(null); }
+    }
+
     private static CartDto Request(string id) => new() { CartHeader = new CartHeaderDto { UserId = id } };
     private static AppDbContext CreateDb() => new(new DbContextOptionsBuilder<AppDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString()).Options);
     private CartAPIController Controller(AppDbContext db, Bus bus, bool admin = false, string? email = "owner@example.invalid", bool productsAvailable = true, bool couponAvailable = true, bool productThrows = false, bool couponThrows = false)

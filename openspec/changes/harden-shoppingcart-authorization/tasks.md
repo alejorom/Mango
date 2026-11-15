@@ -32,8 +32,8 @@
 
 ## 7. Automated security coverage
 
-- [ ] 7.1 Add and run automated authorization tests covering all five endpoints, owner/foreign/ADMIN, missing/invalid/expired JWT, missing subject, identifier discrepancies and unchanged state on rejection.
-- [ ] 7.2 Test bus publication and downstream calls with controlled fakes; verify zero messages for every rejected email request.
+- [x] 7.1 Add and run automated authorization tests covering all five endpoints, owner/foreign/ADMIN, missing/invalid/expired JWT, missing subject, identifier discrepancies and unchanged state on rejection.
+- [x] 7.2 Test bus publication and downstream calls with controlled fakes; verify zero messages for every rejected email request.
 
 ## 8. Security and documentation verification
 
