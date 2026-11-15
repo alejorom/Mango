@@ -96,7 +96,8 @@ public class WebCompatibilityTests
         var coupon = new Mango.Services.ShoppingCartAPI.Service.CouponService(new DownstreamFactory(new HttpClient(new UnauthorizedHandler()) { BaseAddress = new Uri("https://example.invalid") }));
         var error = await Assert.ThrowsAsync<HttpRequestException>(() => product.GetProducts());
         Assert.Equal(HttpStatusCode.Unauthorized, error.StatusCode);
-        Assert.Null(await coupon.GetCoupon("SAVE"));
+        var couponError = await Assert.ThrowsAsync<HttpRequestException>(() => coupon.GetCoupon("SAVE"));
+        Assert.Equal(HttpStatusCode.Unauthorized, couponError.StatusCode);
     }
 
     [Theory]
@@ -117,6 +118,36 @@ public class WebCompatibilityTests
     {
         var service = new Mango.Services.ShoppingCartAPI.Service.ProductService(new DownstreamFactory(new HttpClient(new EmptySuccessHandler()) { BaseAddress = new Uri("https://example.invalid") }));
         await Assert.ThrowsAsync<InvalidDataException>(() => service.GetProducts());
+    }
+
+    [Theory]
+    [InlineData(HttpStatusCode.BadRequest)]
+    [InlineData(HttpStatusCode.Unauthorized)]
+    [InlineData(HttpStatusCode.Forbidden)]
+    [InlineData(HttpStatusCode.InternalServerError)]
+    public async Task CouponServiceRejectsHttpFailures(HttpStatusCode status)
+    {
+        var service = new Mango.Services.ShoppingCartAPI.Service.CouponService(new DownstreamFactory(new HttpClient(new Handler(status)) { BaseAddress = new Uri("https://example.invalid") }));
+        var error = await Assert.ThrowsAsync<HttpRequestException>(() => service.GetCoupon("SAVE"));
+        Assert.Equal(status, error.StatusCode);
+        Assert.Equal("Coupon service request failed.", error.Message);
+    }
+
+    [Fact]
+    public async Task CouponServiceDistinguishesNotFoundEmptySuccessAndCommunicationFailure()
+    {
+        var missing = new Mango.Services.ShoppingCartAPI.Service.CouponService(new DownstreamFactory(new HttpClient(new Handler(HttpStatusCode.NotFound)) { BaseAddress = new Uri("https://example.invalid") }));
+        Assert.Null(await missing.GetCoupon("MISSING"));
+        var empty = new Mango.Services.ShoppingCartAPI.Service.CouponService(new DownstreamFactory(new HttpClient(new EmptySuccessHandler()) { BaseAddress = new Uri("https://example.invalid") }));
+        await Assert.ThrowsAsync<InvalidDataException>(() => empty.GetCoupon("SAVE"));
+        var failed = new Mango.Services.ShoppingCartAPI.Service.CouponService(new DownstreamFactory(new HttpClient(new FailedHandler()) { BaseAddress = new Uri("https://example.invalid") }));
+        var error = await Assert.ThrowsAsync<HttpRequestException>(() => failed.GetCoupon("SAVE"));
+        Assert.Equal("Coupon service request failed.", error.Message);
+    }
+
+    private sealed class FailedHandler : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) => throw new HttpRequestException("sensitive test detail");
     }
 
     private sealed class EmptySuccessHandler : HttpMessageHandler

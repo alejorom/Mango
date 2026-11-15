@@ -27,8 +27,8 @@
 
 ## 6. Mango.Web compatibility
 
-- [ ] 6.1 Exercise authenticated GetCart, coupon, upsert, remove and email flows through Mango.Web; verify bearer propagation and 400/401/404 handling.
-- [ ] 6.2 Verify existing ProductAPI/CouponAPI token forwarding and failure behavior with controlled integrations; confirm no unapproved service dependency is introduced.
+- [x] 6.1 Exercise authenticated GetCart, coupon, upsert, remove and email flows through Mango.Web; verify bearer propagation and 400/401/404 handling.
+- [x] 6.2 Verify existing ProductAPI/CouponAPI token forwarding and failure behavior with controlled integrations; confirm no unapproved service dependency is introduced.
 
 ## 7. Automated security coverage
 
