@@ -8,7 +8,7 @@ ShoppingCartAPI accepts unauthenticated requests and trusts client-supplied iden
 
 - **BREAKING** Require valid JWTs and owner authorization on all five cart actions (SC-01, SC-02, SC-03, SC-04).
 - Return indistinguishable 404 responses for foreign and nonexistent carts in GetCart and ApplyCoupon; reject malformed identifiers with 400 and missing or invalid authentication with 401. CartUpsert retains creation for the authenticated user. Preserve existing routes and DTO shapes.
-- Reconstruct the email payload from trusted data and an approved authorized recipient source; reject without publishing otherwise (SC-05). Recipient source is an explicit pending decision.
+- Reconstruct the email payload from trusted data and use the validated JWT `email` claim as the approved recipient; reject without publishing when it is missing or unusable (SC-05).
 - Add automated security and integration coverage, including Web and existing downstream token propagation.
 
 ## Capabilities

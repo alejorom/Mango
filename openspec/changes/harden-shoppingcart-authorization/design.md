@@ -41,7 +41,7 @@ Alternatives: trusting DTO user IDs or ADMIN role was rejected because neither p
 - DTO fields may contain inconsistent or nested IDs; distinguish foreign and malformed cases without an existence oracle.
 - GetCart and ApplyCoupon now return 404 for absent carts; this intentionally changes their existing failure behavior and must be checked with Web clients.
 - Contact fields are not persisted. The approved recipient is taken from the JWT email claim; Name and Phone remain unset. No fallback to client data or publish-on-error is allowed.
-- Avoid a partial cart email when Product/Coupon data cannot be trusted or resolved; preserve existing read error semantics and fail publication closed.
+- Avoid a partial cart email when Product/Coupon data cannot be trusted or resolved; fail publication closed. GetCart returns a generic HTTP 500 for propagated dependency exceptions; a missing coupon (HTTP 404) remains undiscounted.
 
 ## Open Questions
 

@@ -37,6 +37,47 @@ The response is a `ResponseDto` with `IsSuccess = true` and `Result = true` on s
 - **WHEN** no approved authorized recipient source is available
 - **THEN** the request fails closed and no message is published
 
+### Requirement: Downstream integration with ProductAPI
+
+The system SHALL call ProductAPI using the named `HttpClient` (`"Product"`) with base address from `ServiceUrls:ProductAPI`, propagating the caller's JWT bearer token through `BackendApiAuthenticationHttpClientHandler`.
+
+The call is `GET /api/product`. A successful HTTP response is deserialized as `ResponseDto`; when `IsSuccess = true`, `Result` is deserialized as `IEnumerable<ProductDto>`, including a valid empty list. A successful HTTP response with `IsSuccess = false`, a non-success HTTP status, or a communication error propagates an exception; an empty response or JSON deserialization error also fails. GetCart handles propagated exceptions with its existing generic HTTP 500 response. EmailCartRequest fails closed without publication when products cannot be resolved.
+
+#### Scenario: ProductAPI returns products
+
+- **WHEN** ProductAPI responds with `IsSuccess = true` and a non-empty product list
+- **THEN** `GetCart` resolves each cart item's `Product` field from that list by `ProductId`
+
+#### Scenario: ProductAPI unavailable or returns failure
+
+- **WHEN** ProductAPI is unreachable or returns a non-success HTTP status
+- **THEN** the client propagates an exception and GetCart returns HTTP 500 without exposing exception details
+- **WHEN** ProductAPI returns a successful HTTP response with `IsSuccess = false`
+- **THEN** the client propagates an exception and GetCart returns HTTP 500 without exposing exception details
+
+#### Scenario: ProductAPI returns a valid empty list
+
+- **WHEN** ProductAPI returns a successful response with `IsSuccess = true` and an empty product list
+- **THEN** the client returns an empty list without treating it as a dependency failure
+
+### Requirement: Downstream integration with CouponAPI
+
+The system SHALL call CouponAPI using the named `HttpClient` (`"Coupon"`) with base address from `ServiceUrls:CouponAPI`, propagating the caller's JWT bearer token through `BackendApiAuthenticationHttpClientHandler`.
+
+The call is `GET /api/coupon/GetByCode/{code}`. A valid successful HTTP response is deserialized as `ResponseDto` and its `Result` as `CouponDto`. HTTP 404 returns `null`. Other non-success HTTP statuses, communication failures and invalid successful responses propagate an exception. GetCart handles propagated exceptions with its existing generic HTTP 500 response. EmailCartRequest fails closed without publication if the coupon cannot be resolved.
+
+#### Scenario: CouponAPI returns a valid coupon
+
+- **WHEN** CouponAPI responds with `IsSuccess = true` and coupon data
+- **THEN** the coupon's `DiscountAmount` and `MinAmount` are used in `GetCart` discount calculation
+
+#### Scenario: CouponAPI unavailable or code not found
+
+- **WHEN** CouponAPI responds with HTTP 404
+- **THEN** `CouponService.GetCoupon` returns `null` and GetCart applies no discount
+- **WHEN** CouponAPI is unreachable, returns another non-success HTTP status, or returns an invalid successful response
+- **THEN** the client propagates an exception and GetCart returns HTTP 500 without exposing exception details
+
 ## ADDED Requirements
 
 ### Requirement: Cart ownership and client identifiers

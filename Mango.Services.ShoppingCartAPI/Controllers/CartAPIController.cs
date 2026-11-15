@@ -18,7 +18,7 @@ namespace Mango.Services.ShoppingCartAPI.Controllers
     [ApiController]
     [Authorize]
     public class CartAPIController(AppDbContext db, IMapper mapper, IProductService productService, 
-        ICouponService couponService, IMessageBus messageBus, IConfiguration configuration) : ControllerBase
+        ICouponService couponService, IMessageBus messageBus, IConfiguration configuration, ILogger<CartAPIController>? logger = null) : ControllerBase
     {
         private ResponseDto _response = new ResponseDto();
         private IMapper _mapper = mapper;
@@ -93,8 +93,9 @@ namespace Mango.Services.ShoppingCartAPI.Controllers
             }
             catch (Exception ex)
             {
+                logger?.LogError("GetCart failed with error type {ErrorType}", ex.GetType().Name);
                 _response.IsSuccess = false;
-                _response.Message = ex.Message;
+                _response.Message = "An unexpected error occurred";
                 return StatusCode(500, _response);
             }
             return _response;

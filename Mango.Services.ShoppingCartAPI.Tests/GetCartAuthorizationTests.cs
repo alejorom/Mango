@@ -12,6 +12,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 using Xunit;
 
 namespace Mango.Services.ShoppingCartAPI.Tests;
@@ -69,13 +70,33 @@ public class GetCartAuthorizationTests
         Assert.DoesNotContain(db.ChangeTracker.Entries(), e => e.State != EntityState.Unchanged);
     }
 
+    [Fact]
+    public async Task UnexpectedFailureReturnsGenericErrorAndLogsWithoutExceptionDetails()
+    {
+        await using var db = CreateDb();
+        db.CartHeaders.Add(new CartHeader { UserId = Owner });
+        await db.SaveChangesAsync();
+        var products = new Products { Fail = true };
+        var logger = new SafeLogger();
+        var result = await CreateController(db, Owner, products, new Coupons(), logger: logger).GetCart(Owner);
+        var http = Assert.IsType<ObjectResult>(result.Result);
+        Assert.Equal(500, http.StatusCode);
+        var response = Assert.IsType<ResponseDto>(http.Value);
+        Assert.False(response.IsSuccess);
+        Assert.Equal("An unexpected error occurred", response.Message);
+        Assert.DoesNotContain("sensitive-test-detail", JsonSerializer.Serialize(response));
+        Assert.Equal(LogLevel.Error, logger.Level);
+        Assert.DoesNotContain("sensitive-test-detail", logger.Message);
+        Assert.Null(logger.Exception);
+    }
+
     private static AppDbContext CreateDb() => new(new DbContextOptionsBuilder<AppDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString()).Options);
 
-    private static CartAPIController CreateController(AppDbContext db, string subject, Products products, Coupons coupons, bool admin = false)
+    private static CartAPIController CreateController(AppDbContext db, string subject, Products products, Coupons coupons, bool admin = false, ILogger<CartAPIController>? logger = null)
     {
         var claims = new List<Claim> { new(JwtRegisteredClaimNames.Sub, subject) };
         if (admin) claims.Add(new Claim(ClaimTypes.Role, "ADMIN"));
-        var controller = new CartAPIController(db, MappingConfig.RegisterMaps().CreateMapper(), products, coupons, new Bus(), new ConfigurationBuilder().Build());
+        var controller = new CartAPIController(db, MappingConfig.RegisterMaps().CreateMapper(), products, coupons, new Bus(), new ConfigurationBuilder().Build(), logger);
         controller.ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext { User = new ClaimsPrincipal(new ClaimsIdentity(claims, "test")) } };
         return controller;
     }
@@ -83,10 +104,27 @@ public class GetCartAuthorizationTests
     private sealed class Products : IProductService
     {
         public int Calls { get; private set; }
+        public bool Fail { get; set; }
         public Task<IEnumerable<ProductDto>> GetProducts()
         {
             Calls++;
+            if (Fail) throw new InvalidOperationException("sensitive-test-detail");
             return Task.FromResult<IEnumerable<ProductDto>>(new[] { new ProductDto { ProductId = 7, Price = 10 } });
+        }
+    }
+
+    private sealed class SafeLogger : ILogger<CartAPIController>
+    {
+        public LogLevel Level { get; private set; }
+        public string Message { get; private set; } = "";
+        public Exception? Exception { get; private set; }
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+        public bool IsEnabled(LogLevel logLevel) => true;
+        public void Log<TState>(LogLevel level, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
+        {
+            Level = level;
+            Exception = exception;
+            Message = formatter(state, exception);
         }
     }
 
