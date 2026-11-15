@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
+using System.IdentityModel.Tokens.Jwt;
 using System.Text;
 
 namespace Mango.Services.ShoppingCartAPI.Extensions
@@ -22,6 +23,7 @@ namespace Mango.Services.ShoppingCartAPI.Extensions
                 x.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
             }).AddJwtBearer(x =>
             {
+                x.MapInboundClaims = false;
                 x.TokenValidationParameters = new TokenValidationParameters
                 {
                     ValidateIssuerSigningKey = true,
@@ -30,6 +32,19 @@ namespace Mango.Services.ShoppingCartAPI.Extensions
                     ValidIssuer = issuer,
                     ValidAudience = audience,
                     ValidateAudience = true
+                };
+                x.Events = new JwtBearerEvents
+                {
+                    OnTokenValidated = context =>
+                    {
+                        var subjects = context.Principal?.FindAll(JwtRegisteredClaimNames.Sub).ToArray();
+                        if (subjects is not { Length: 1 } || string.IsNullOrWhiteSpace(subjects[0].Value))
+                        {
+                            context.Fail("Invalid subject");
+                        }
+
+                        return Task.CompletedTask;
+                    }
                 };
             });
 
