@@ -16,9 +16,14 @@ namespace Mango.Services.ShoppingCartAPI.Service
         public async Task<IEnumerable<ProductDto>> GetProducts()
         {
             var client = _httpClientFactory.CreateClient("Product");
-            var response = await client.GetAsync($"/api/product");
+            using var response = await client.GetAsync($"/api/product");
+            if (!response.IsSuccessStatusCode)
+                throw new HttpRequestException("Product service request failed.", null, response.StatusCode);
             var apiContet = await response.Content.ReadAsStringAsync();
-            var resp = JsonConvert.DeserializeObject<ResponseDto>(apiContet);
+            if (string.IsNullOrWhiteSpace(apiContet))
+                throw new InvalidDataException("Product service returned an empty response.");
+            var resp = JsonConvert.DeserializeObject<ResponseDto>(apiContet)
+                ?? throw new InvalidDataException("Product service returned an invalid response.");
             if (resp.IsSuccess)
             {
                 return JsonConvert.DeserializeObject<IEnumerable<ProductDto>>(Convert.ToString(resp.Result));

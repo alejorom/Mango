@@ -58,6 +58,19 @@ namespace Mango.Web.Service
 
                 apiResponse = await client.SendAsync(message);
 
+                if (!apiResponse.IsSuccessStatusCode && message.RequestUri.AbsolutePath.StartsWith("/api/cart/", StringComparison.OrdinalIgnoreCase))
+                {
+                    var error = apiResponse.StatusCode switch
+                    {
+                        HttpStatusCode.BadRequest => "Bad Request",
+                        HttpStatusCode.Unauthorized => "Unauthorized",
+                        HttpStatusCode.Forbidden => "Access Denied",
+                        HttpStatusCode.NotFound => "Not Found",
+                        _ => "Service unavailable"
+                    };
+                    return new ResponseDto { IsSuccess = false, Message = error, HttpStatusCode = (int)apiResponse.StatusCode };
+                }
+
                 switch (apiResponse.StatusCode)
                 {
                     case HttpStatusCode.NotFound:

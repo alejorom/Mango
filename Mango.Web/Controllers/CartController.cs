@@ -21,7 +21,8 @@ namespace Mango.Web.Controllers
         [Authorize]
         public async Task<IActionResult> CartIndex()
         {
-            return View(await LoadCartDtoBasedOnLoggedInUser());
+            var cart = await LoadCartDtoBasedOnLoggedInUser();
+            return cart == null ? StatusCode(Response.StatusCode) : View(cart);
         }
 
         public IActionResult Index()
@@ -29,28 +30,29 @@ namespace Mango.Web.Controllers
             return View();
         }
 
-        private async Task<CartDto> LoadCartDtoBasedOnLoggedInUser()
+        private async Task<CartDto?> LoadCartDtoBasedOnLoggedInUser()
         {
             var userId = User.Claims.Where(u => u.Type == JwtRegisteredClaimNames.Sub)?.FirstOrDefault()?.Value;
             ResponseDto? response = await _cartService.GetCartByUserIdAsnyc(userId);
-            if (response != null & response.IsSuccess)
+            if (response != null && response.IsSuccess && response.Result != null)
             {
                 CartDto cartDto = JsonConvert.DeserializeObject<CartDto>(Convert.ToString(response.Result));
                 return cartDto;
             }
-            return new CartDto();
+            Response.StatusCode = response?.HttpStatusCode ?? StatusCodes.Status502BadGateway;
+            return null;
         }
 
         public async Task<IActionResult> Remove(int cartDetailsId)
         {
             var userId = User.Claims.Where(u => u.Type == JwtRegisteredClaimNames.Sub)?.FirstOrDefault()?.Value;
             ResponseDto? response = await _cartService.RemoveFromCartAsync(cartDetailsId);
-            if (response != null & response.IsSuccess)
+            if (response != null && response.IsSuccess)
             {
                 TempData["success"] = "Cart updated successfully";
                 return RedirectToAction(nameof(CartIndex));
             }
-            return View();
+            return StatusCode(response?.HttpStatusCode ?? StatusCodes.Status502BadGateway);
         }
 
         public async Task<IActionResult> Confirmation(int orderId)
@@ -75,31 +77,33 @@ namespace Mango.Web.Controllers
         {
 
             ResponseDto? response = await _cartService.ApplyCouponAsync(cartDto);
-            if (response != null & response.IsSuccess)
+            if (response != null && response.IsSuccess)
             {
                 TempData["success"] = "Cart updated successfully";
                 return RedirectToAction(nameof(CartIndex));
             }
-            return View();
+            return StatusCode(response?.HttpStatusCode ?? StatusCodes.Status502BadGateway);
         }
 
         [HttpPost]
         public async Task<IActionResult> RemoveCoupon(CartDto cartDto)
         {
+            if (cartDto?.CartHeader == null) return BadRequest();
             cartDto.CartHeader.CouponCode = "";
             ResponseDto? response = await _cartService.ApplyCouponAsync(cartDto);
-            if (response != null & response.IsSuccess)
+            if (response != null && response.IsSuccess)
             {
                 TempData["success"] = "Cart updated successfully";
                 return RedirectToAction(nameof(CartIndex));
             }
-            return View();
+            return StatusCode(response?.HttpStatusCode ?? StatusCodes.Status502BadGateway);
         }
 
         [Authorize]
         public async Task<IActionResult> Checkout()
         {
-            return View(await LoadCartDtoBasedOnLoggedInUser());
+            var cart = await LoadCartDtoBasedOnLoggedInUser();
+            return cart?.CartHeader == null ? StatusCode(Response.StatusCode >= 400 ? Response.StatusCode : StatusCodes.Status502BadGateway) : View(cart);
         }
 
         [HttpPost]
@@ -107,7 +111,8 @@ namespace Mango.Web.Controllers
         public async Task<IActionResult> Checkout(CartDto cartDto)
         {
 
-            CartDto cart = await LoadCartDtoBasedOnLoggedInUser();
+            CartDto? cart = await LoadCartDtoBasedOnLoggedInUser();
+            if (cart?.CartHeader == null) return StatusCode(Response.StatusCode >= 400 ? Response.StatusCode : StatusCodes.Status502BadGateway);
             cart.CartHeader.Phone = cartDto.CartHeader.Phone;
             cart.CartHeader.Email = cartDto.CartHeader.Email;
             cart.CartHeader.Name = cartDto.CartHeader.Name;
@@ -138,15 +143,16 @@ namespace Mango.Web.Controllers
         [HttpPost]
         public async Task<IActionResult> EmailCart(CartDto cartDto)
         {
-            CartDto cart = await LoadCartDtoBasedOnLoggedInUser();
+            CartDto? cart = await LoadCartDtoBasedOnLoggedInUser();
+            if (cart?.CartHeader == null) return StatusCode(Response.StatusCode >= 400 ? Response.StatusCode : StatusCodes.Status502BadGateway);
             cart.CartHeader.Email = User.Claims.Where(u => u.Type == JwtRegisteredClaimNames.Email)?.FirstOrDefault()?.Value;
             ResponseDto? response = await _cartService.EmailCart(cart);
-            if (response != null & response.IsSuccess)
+            if (response != null && response.IsSuccess)
             {
                 TempData["success"] = "Email will be processed and sent shortly.";
                 return RedirectToAction(nameof(CartIndex));
             }
-            return View();
+            return StatusCode(response?.HttpStatusCode ?? StatusCodes.Status502BadGateway);
         }
     }
 }
