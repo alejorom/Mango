@@ -1,6 +1,6 @@
 ﻿# Instrucciones para GitHub Copilot
 
-Consulta `AGENTS.md` para las reglas comunes y `openspec/specs/` para los contratos aplicables. Contrasta ambos con el código antes de generar cambios; las instrucciones del usuario prevalecen.
+Consulta `AGENTS.md` para las reglas comunes y la política de ramas Git, y `openspec/specs/` para los contratos aplicables. Contrasta ambos con el código antes de generar cambios; las instrucciones del usuario prevalecen.
 
 ## Mango.Web
 

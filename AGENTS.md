@@ -18,6 +18,18 @@ Revisa las especificaciones y cambios OpenSpec relevantes antes de modificar com
 
 Al comitear un change OpenSpec archivado, usa `git add -A` o Stage All Changes para incluir tanto la desaparición de la ubicación anterior como la aparición de la nueva y permitir que Git detecte el rename. Revisa previamente todos los cambios incluidos y respeta el alcance autorizado.
 
+## Política de ramas Git
+
+Esta política aplica a todos los agentes de IA del repositorio, incluidos Codex, GitHub Copilot, Claude Code y Antigravity.
+
+- `main` es la rama estable de integración; está prohibido desarrollar directamente en ella.
+- Antes de modificar archivos, comprueba la rama activa y el estado de Git. Si la rama activa es `main`, detente y solicita autorización para crear una rama de trabajo.
+- Inicia cada nuevo cambio OpenSpec en una rama independiente creada desde `main` actualizado, con el nombre `feature/<openspec-change-name>`, `fix/<openspec-change-name>` o `docs/<openspec-change-name>`, según corresponda.
+- Cada rama contiene exclusivamente cambios relacionados con su objetivo. No reutilices ramas de cambios ya completados.
+- Antes de integrar a `main`, completa los requisitos obligatorios, ejecuta las pruebas correspondientes, valida OpenSpec, resuelve los defectos bloqueantes, documenta y aprueba cualquier trabajo diferido, y sincroniza y archiva el cambio OpenSpec según el flujo aprobado.
+- Integra a `main` mediante un Pull Request revisado y aprobado. Después de integrar, actualiza `main` local y crea una rama nueva para el siguiente cambio.
+- No ejecutes commits, push, merge, reset, rebase ni eliminación de ramas sin autorización explícita.
+
 ## Comunicación
 
 Responde de forma directa y concisa, adaptando el formato al entregable solicitado. Para cambios de código muestra solo los bloques relevantes cuando sea útil. No agregues sugerencias fuera del alcance.

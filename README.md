@@ -14,6 +14,10 @@ Los servicios no comparten necesariamente los mismos contratos de respuesta ni p
 
 Las reglas comunes para agentes están en `AGENTS.md`. Las especificaciones vigentes y el historial de cambios están en `openspec/`. Order y Reward aún no tienen baseline OpenSpec. Para compilar se requiere un SDK compatible con .NET 11; consulta la configuración de cada servicio antes de ejecutarlo.
 
+## Flujo de contribución
+
+Cada cambio OpenSpec comienza en una rama independiente creada desde `main` actualizado: `feature/<openspec-change-name>`, `fix/<openspec-change-name>` o `docs/<openspec-change-name>`. Antes de integrar, completa y verifica el cambio, documenta y aprueba el trabajo diferido, y sincroniza y archiva OpenSpec según el flujo aprobado. La integración se realiza mediante un Pull Request revisado y aprobado. Consulta `AGENTS.md` para la política completa de ramas y autorizaciones.
+
 ## Archivo histórico: prompts de documentación
 
 El texto siguiente conserva prompts usados durante etapas anteriores. Sus referencias tecnológicas y requisitos describen el contexto histórico, no necesariamente el estado actual.
