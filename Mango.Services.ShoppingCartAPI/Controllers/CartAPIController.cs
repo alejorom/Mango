@@ -6,6 +6,7 @@ using Mango.Services.ShoppingCartAPI.Models.Dto;
 using Mango.Services.ShoppingCartAPI.Service.IService;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using System.IdentityModel.Tokens.Jwt;
@@ -118,14 +119,19 @@ namespace Mango.Services.ShoppingCartAPI.Controllers
 
             try
             {
-                var cartId = await _db.CartHeaders.Where(u => u.UserId == subject)
-                    .Select(u => (int?)u.CartHeaderId).FirstOrDefaultAsync();
-                if (cartId is null)
+                var cartIds = await _db.CartHeaders.Where(u => u.UserId == subject)
+                    .Select(u => u.CartHeaderId).Take(2).ToListAsync();
+                if (cartIds.Count == 0)
                 {
                     return NotFound(new ResponseDto { IsSuccess = false, Message = "Cart not found" });
                 }
+                if (cartIds.Count != 1)
+                {
+                    logger?.LogWarning("ApplyCoupon failed because cart selection is ambiguous");
+                    return StatusCode(500, new ResponseDto { IsSuccess = false, Message = "An unexpected error occurred" });
+                }
 
-                var updated = await _db.CartHeaders.Where(u => u.CartHeaderId == cartId && u.UserId == subject)
+                var updated = await _db.CartHeaders.Where(u => u.CartHeaderId == cartIds[0] && u.UserId == subject)
                     .ExecuteUpdateAsync(setters => setters.SetProperty(u => u.CouponCode, cartDto.CartHeader.CouponCode));
                 if (updated != 1)
                 {
@@ -133,8 +139,9 @@ namespace Mango.Services.ShoppingCartAPI.Controllers
                 }
                 _response.Result = true;
             }
-            catch (Exception)
+            catch (Exception ex)
             {
+                LogWriteFailure("ApplyCoupon", "read or update", ex);
                 _response.IsSuccess = false;
                 _response.Message = "An unexpected error occurred";
                 return StatusCode(500, _response);
@@ -235,8 +242,9 @@ namespace Mango.Services.ShoppingCartAPI.Controllers
                 }
                 _response.Result = cartDto;
             }
-            catch (Exception)
+            catch (Exception ex)
             {
+                LogWriteFailure("CartUpsert", "transaction or release", ex);
                 _response.Message = "An unexpected error occurred";
                 _response.IsSuccess = false;
                 return StatusCode(500, _response);
@@ -273,20 +281,40 @@ namespace Mango.Services.ShoppingCartAPI.Controllers
                     return NotFound(new ResponseDto { IsSuccess = false, Message = "Cart item not found" });
                 }
 
-                await _db.CartHeaders.Where(header => header.CartHeaderId == cartDetails.CartHeaderId &&
+                var headersDeleted = await _db.CartHeaders.Where(header => header.CartHeaderId == cartDetails.CartHeaderId &&
                     header.UserId == subject && !_db.CartDetails.Any(item => item.CartHeaderId == header.CartHeaderId))
                     .ExecuteDeleteAsync();
+                if (headersDeleted != 1 && (headersDeleted != 0 || !await _db.CartHeaders.AnyAsync(header =>
+                    header.CartHeaderId == cartDetails.CartHeaderId && header.UserId == subject &&
+                    _db.CartDetails.Any(item => item.CartHeaderId == header.CartHeaderId))))
+                {
+                    throw new InvalidOperationException("Cart cleanup could not be verified");
+                }
                 await transaction.CommitAsync();
 
                 _response.Result = true;
             }
-            catch (Exception)
+            catch (Exception ex)
             {
+                LogWriteFailure("RemoveCart", "transaction or release", ex);
                 _response.Message = "An unexpected error occurred";
                 _response.IsSuccess = false;
                 return StatusCode(500, _response);
             }
             return _response;
+        }
+
+        private void LogWriteFailure(string operation, string phase, Exception exception)
+        {
+            for (var current = exception; current is not null; current = current.InnerException)
+            {
+                if (current is SqlException sql)
+                {
+                    logger?.LogError("{Operation} failed in {Phase} with SQL error {SqlNumber}", operation, phase, sql.Number);
+                    return;
+                }
+            }
+            logger?.LogError("{Operation} failed in {Phase} with error type {ErrorType}", operation, phase, exception.GetType().Name);
         }
 
         [HttpPost("EmailCartRequest")]

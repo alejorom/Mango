@@ -22,6 +22,19 @@ public class ApplyCouponAuthorizationTests
     private readonly string Other = Guid.NewGuid().ToString();
 
     [Fact]
+    public async Task DuplicateOwnedHeadersRejectCouponWithoutMutation()
+    {
+        await using var db = CreateDb();
+        db.CartHeaders.AddRange(new CartHeader { UserId = Owner, CouponCode = "FIRST" },
+            new CartHeader { UserId = Owner, CouponCode = "SECOND" });
+        await db.SaveChangesAsync();
+        var result = await CreateController(db, new Bus()).ApplyCoupon(Request(Owner, "NEW"));
+        Assert.Equal(500, Assert.IsType<ObjectResult>(result.Result).StatusCode);
+        Assert.Equal(new[] { "FIRST", "SECOND" }, await db.CartHeaders.AsNoTracking()
+            .OrderBy(x => x.CouponCode).Select(x => x.CouponCode).ToArrayAsync());
+    }
+
+    [Fact]
     public async Task OwnerCanApplyAndClearCoupon()
     {
         await using var db = CreateDb();
