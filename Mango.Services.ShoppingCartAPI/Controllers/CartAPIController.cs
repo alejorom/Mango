@@ -48,7 +48,20 @@ namespace Mango.Services.ShoppingCartAPI.Controllers
                 var cartHeader = await _db.CartHeaders.FirstOrDefaultAsync(u => u.UserId == subject);
                 if (cartHeader is null)
                 {
-                    return NotFound(new ResponseDto { IsSuccess = false, Message = "Cart not found" });
+                    return new ResponseDto
+                    {
+                        Result = new CartDto
+                        {
+                            CartHeader = new CartHeaderDto
+                            {
+                                CartHeaderId = 0,
+                                UserId = subject,
+                                CartTotal = 0,
+                                Discount = 0
+                            },
+                            CartDetails = []
+                        }
+                    };
                 }
 
                 CartDto cart = new()

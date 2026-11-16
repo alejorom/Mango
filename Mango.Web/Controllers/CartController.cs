@@ -103,7 +103,9 @@ namespace Mango.Web.Controllers
         public async Task<IActionResult> Checkout()
         {
             var cart = await LoadCartDtoBasedOnLoggedInUser();
-            return cart?.CartHeader == null ? StatusCode(Response.StatusCode >= 400 ? Response.StatusCode : StatusCodes.Status502BadGateway) : View(cart);
+            if (cart?.CartHeader == null) return StatusCode(Response.StatusCode >= 400 ? Response.StatusCode : StatusCodes.Status502BadGateway);
+            if (cart.CartHeader.CartHeaderId == 0) return NotFound();
+            return View(cart);
         }
 
         [HttpPost]
@@ -113,6 +115,7 @@ namespace Mango.Web.Controllers
 
             CartDto? cart = await LoadCartDtoBasedOnLoggedInUser();
             if (cart?.CartHeader == null) return StatusCode(Response.StatusCode >= 400 ? Response.StatusCode : StatusCodes.Status502BadGateway);
+            if (cart.CartHeader.CartHeaderId == 0) return NotFound();
             cart.CartHeader.Phone = cartDto.CartHeader.Phone;
             cart.CartHeader.Email = cartDto.CartHeader.Email;
             cart.CartHeader.Name = cartDto.CartHeader.Name;
@@ -145,6 +148,7 @@ namespace Mango.Web.Controllers
         {
             CartDto? cart = await LoadCartDtoBasedOnLoggedInUser();
             if (cart?.CartHeader == null) return StatusCode(Response.StatusCode >= 400 ? Response.StatusCode : StatusCodes.Status502BadGateway);
+            if (cart.CartHeader.CartHeaderId == 0) return NotFound();
             cart.CartHeader.Email = User.Claims.Where(u => u.Type == JwtRegisteredClaimNames.Email)?.FirstOrDefault()?.Value;
             ResponseDto? response = await _cartService.EmailCart(cart);
             if (response != null && response.IsSuccess)

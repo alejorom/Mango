@@ -56,7 +56,9 @@ public class WebCompatibilityTests
     [Theory]
     [InlineData(HttpStatusCode.BadRequest)]
     [InlineData(HttpStatusCode.Unauthorized)]
+    [InlineData(HttpStatusCode.Forbidden)]
     [InlineData(HttpStatusCode.NotFound)]
+    [InlineData(HttpStatusCode.InternalServerError)]
     public async Task CartActionsPreserveRejectedHttpStatus(HttpStatusCode status)
     {
         var handler = new Handler(status);

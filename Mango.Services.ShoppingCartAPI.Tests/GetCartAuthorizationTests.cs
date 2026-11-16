@@ -11,6 +11,7 @@ using Mango.Services.ShoppingCartAPI.Service.IService;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Xunit;
@@ -45,29 +46,92 @@ public class GetCartAuthorizationTests
         Assert.Equal(1, coupons.Calls);
     }
 
-    [Fact]
-    public async Task ForeignAndMissingCartsHaveIdenticalResponsesWithoutExternalCallsOrWrites()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ForeignExistingAndMissingCartsHaveIdenticalResponsesWithoutExternalCallsOrWrites(bool admin)
     {
         await using var db = CreateDb();
         db.CartHeaders.Add(new CartHeader { UserId = Other });
         await db.SaveChangesAsync();
         var products = new Products();
         var coupons = new Coupons();
-        var foreign = await CreateController(db, Owner, products, coupons).GetCart(Other);
-        var missing = await CreateController(db, Owner, products, coupons).GetCart(Owner);
-        var admin = await CreateController(db, Owner, products, coupons, true).GetCart(Other);
+        var foreign = await CreateController(db, Owner, products, coupons, admin).GetCart(Other);
+        var missing = await CreateController(db, Owner, products, coupons, admin).GetCart("33333333-3333-3333-3333-333333333333");
         var malformed = await CreateController(db, Owner, products, coupons).GetCart("bad-id");
 
         var foreignResult = Assert.IsType<NotFoundObjectResult>(foreign.Result);
         var missingResult = Assert.IsType<NotFoundObjectResult>(missing.Result);
-        var adminResult = Assert.IsType<NotFoundObjectResult>(admin.Result);
         Assert.Equal(JsonSerializer.Serialize(foreignResult.Value), JsonSerializer.Serialize(missingResult.Value));
-        Assert.Equal(JsonSerializer.Serialize(foreignResult.Value), JsonSerializer.Serialize(adminResult.Value));
         Assert.IsType<BadRequestObjectResult>(malformed.Result);
         Assert.Equal(0, products.Calls);
         Assert.Equal(0, coupons.Calls);
         Assert.Single(db.CartHeaders);
         Assert.DoesNotContain(db.ChangeTracker.Entries(), e => e.State != EntityState.Unchanged);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task RepeatedOwnMissingReadsReturnVirtualCartWithoutWritesOrExternalCalls(bool admin)
+    {
+        var writes = new WriteGuard();
+        await using var db = new AppDbContext(new DbContextOptionsBuilder<AppDbContext>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString()).AddInterceptors(writes).Options);
+        var products = new Products { Fail = true };
+        var coupons = new Coupons();
+
+        for (var read = 0; read < 3; read++)
+        {
+            var result = await CreateController(db, Owner, products, coupons, admin).GetCart(Owner);
+            Assert.Null(result.Result);
+            var response = Assert.IsType<ResponseDto>(result.Value);
+            Assert.True(response.IsSuccess);
+            var cart = Assert.IsType<CartDto>(response.Result);
+            Assert.NotNull(cart.CartHeader);
+            Assert.Equal(0, cart.CartHeader.CartHeaderId);
+            Assert.Equal(Owner, cart.CartHeader.UserId);
+            Assert.Equal(0, cart.CartHeader.CartTotal);
+            Assert.Equal(0, cart.CartHeader.Discount);
+            Assert.Null(cart.CartHeader.CouponCode);
+            Assert.Null(cart.CartHeader.Name);
+            Assert.Null(cart.CartHeader.Phone);
+            Assert.Null(cart.CartHeader.Email);
+            Assert.NotNull(cart.CartDetails);
+            Assert.Empty(cart.CartDetails);
+        }
+
+        Assert.Equal(0, writes.Calls);
+        Assert.Equal(0, products.Calls);
+        Assert.Equal(0, coupons.Calls);
+        Assert.Empty(db.CartHeaders);
+        Assert.Empty(db.CartDetails);
+        Assert.Empty(db.ChangeTracker.Entries());
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ForeignIdentityIsRejectedBeforeAccessingStorage(bool admin)
+    {
+        await using var db = CreateDb();
+        await db.DisposeAsync();
+        var result = await CreateController(db, Owner, new Products(), new Coupons(), admin).GetCart(Other);
+        Assert.IsType<NotFoundObjectResult>(result.Result);
+    }
+
+    [Fact]
+    public async Task StorageFailureIsNotReturnedAsVirtualCart()
+    {
+        await using var db = CreateDb();
+        await db.DisposeAsync();
+        var result = await CreateController(db, Owner, new Products(), new Coupons()).GetCart(Owner);
+        var http = Assert.IsType<ObjectResult>(result.Result);
+        Assert.Equal(500, http.StatusCode);
+        var response = Assert.IsType<ResponseDto>(http.Value);
+        Assert.False(response.IsSuccess);
+        Assert.Null(response.Result);
+        Assert.Equal("An unexpected error occurred", response.Message);
     }
 
     [Fact]
@@ -141,5 +205,21 @@ public class GetCartAuthorizationTests
     private sealed class Bus : IMessageBus
     {
         public Task PublishMessage(object message, string topic_queue_Name) => throw new InvalidOperationException();
+    }
+
+    private sealed class WriteGuard : SaveChangesInterceptor
+    {
+        public int Calls { get; private set; }
+        public override InterceptionResult<int> SavingChanges(DbContextEventData eventData, InterceptionResult<int> result)
+        {
+            Calls++;
+            throw new InvalidOperationException("Unexpected write");
+        }
+        public override ValueTask<InterceptionResult<int>> SavingChangesAsync(DbContextEventData eventData,
+            InterceptionResult<int> result, CancellationToken cancellationToken = default)
+        {
+            Calls++;
+            throw new InvalidOperationException("Unexpected write");
+        }
     }
 }
