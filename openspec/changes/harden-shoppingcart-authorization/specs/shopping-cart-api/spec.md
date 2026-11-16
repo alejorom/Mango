@@ -1,5 +1,89 @@
 ﻿## MODIFIED Requirements
 
+### Requirement: Retrieve cart with computed totals
+
+The system SHALL expose `GET /api/cart/GetCart/{userId}` that returns the authenticated user's logical cart as a `CartDto` with all totals computed. Authentication, identifier validation and owner authorization SHALL precede the read. A successful lookup for the authenticated subject that finds no persisted header SHALL return the successful logical empty representation defined below; it SHALL NOT create data or convert a storage or dependency failure into an empty cart.
+
+For an existing owned header, total computation SHALL remain:
+1. Fetch all `CartDetails` rows for the user's `CartHeader`.
+2. Fetch all products from ProductAPI (`GET /api/product`). For each detail row, resolve the matching product by `ProductId`. Items whose `ProductId` is not present in the ProductAPI response SHALL be skipped - they SHALL NOT contribute to `CartTotal` and their `Product` field SHALL remain null.
+3. `CartTotal` = sum of (`item.Count * item.Product.Price`) for all **resolved** detail rows only.
+4. If any detail rows could not be resolved (product not found in ProductAPI response), the response SHALL set `IsSuccess = false` with a descriptive message identifying the unresolvable items. `Result` SHALL still contain the partially composed `CartDto` with the resolved items' totals.
+5. If `CouponCode` is not null/empty and all products resolved: fetch the coupon from CouponAPI (`GET /api/coupon/GetByCode/{code}`). If the coupon is not `null` AND `CartTotal > coupon.MinAmount`, subtract `coupon.DiscountAmount` from `CartTotal` and set `CartHeader.Discount = coupon.DiscountAmount`. If the coupon is `null` because CouponAPI returned HTTP 404, no discount SHALL be applied. Other propagated dependency failures SHALL remain generic HTTP 500 errors.
+
+The response SHALL be wrapped in `ResponseDto` with `IsSuccess = true` and `Result` set to the composed `CartDto`, unless unresolved products are detected (step 4) or a failure occurs. A real header without details SHALL retain its existing composition and dependency-error behavior; it SHALL NOT be replaced by the virtual-header absence path.
+
+#### Scenario: Cart retrieved with product prices and no coupon
+
+- **WHEN** an authenticated caller sends `GET /api/cart/GetCart/{userId}` for their own user with existing cart items and no `CouponCode`
+- **THEN** the response `Result` contains a `CartDto` where each `CartDetailsDto.Product` is populated from ProductAPI and `CartHeader.CartTotal` equals the sum of all `(Count * Product.Price)` values
+
+#### Scenario: Coupon discount applied when total exceeds minimum
+
+- **WHEN** an owned cart has a `CouponCode` set, CouponAPI returns a non-null coupon, and `CartTotal > coupon.MinAmount`
+- **THEN** `CartHeader.CartTotal` is reduced by `coupon.DiscountAmount` and `CartHeader.Discount` equals `coupon.DiscountAmount`
+
+#### Scenario: Coupon not applied when total does not exceed minimum
+
+- **WHEN** an owned cart has a `CouponCode` set but `CartTotal <= coupon.MinAmount`
+- **THEN** `CartHeader.CartTotal` and `Discount` remain unchanged (no discount applied)
+
+#### Scenario: Coupon lookup fails or returns no match
+
+- **WHEN** CouponAPI returns HTTP 404 for the owned cart's coupon code and the coupon is `null`
+- **THEN** no discount is applied; `CartTotal` and `Discount` reflect the raw product total
+- **WHEN** coupon lookup instead propagates a transport, non-404 HTTP or invalid-response failure
+- **THEN** GetCart returns generic HTTP 500 without substituting a successful logical empty cart
+
+#### Scenario: One or more products not resolvable from ProductAPI
+
+- **WHEN** one or more `CartDetails` rows of an owned cart have a `ProductId` that is not present in the ProductAPI response
+- **THEN** those items are excluded from `CartTotal`, and the HTTP 200 response sets `IsSuccess = false` with a message identifying the unresolved product ids; resolved items' totals are still returned in `Result`, and the unsuccessful response is not a logical empty success
+
+#### Scenario: Own cart has no persisted header
+
+- **WHEN** an authenticated caller requests their own identity and the owner-scoped storage lookup succeeds without finding a CartHeader
+- **THEN** HTTP 200 is returned with `IsSuccess = true` and a non-null `Result` containing a CartDto with non-null CartHeader, `CartHeaderId = 0`, `UserId` equal to the validated JWT subject, `CartTotal = 0`, `Discount = 0` and a non-null empty CartDetails collection
+- **AND** the virtual header has no persisted identifier, coupon or invented contact data; no records are written or created, no Product/Coupon composition calls are made and no message is published
+
+#### Scenario: Repeated own empty-cart reads
+
+- **WHEN** an authenticated caller repeatedly requests their own cart while no header exists
+- **THEN** every successful read returns the same logical empty shape with HTTP 200, without creating a header or details; initial persistence remains the responsibility of an authorized item upsert
+
+#### Scenario: Real owned header has no details
+
+- **WHEN** an authenticated owner requests a persisted header with no details and valid downstream responses
+- **THEN** the existing HTTP 200 composition behavior is retained with the real header identifier and empty details, rather than returning a virtual header
+- **WHEN** composition for that real empty header encounters a propagated dependency failure
+- **THEN** GetCart returns generic HTTP 500 and does not turn the failure into a successful logical empty response
+
+#### Scenario: Own cart read fails in storage
+
+- **WHEN** the authenticated subject's header lookup fails because of a storage error rather than succeeding with no rows
+- **THEN** GetCart returns HTTP 500 with `IsSuccess = false` and the generic error message, without returning a successful virtual cart or exposing exception details
+
+### Requirement: Error handling and response envelope
+
+All controller actions SHALL return `ActionResult<ResponseDto>`. Successful responses SHALL use the implicit 200 OK with the `ResponseDto` result, including the successful own-header absence defined by `Retrieve cart with computed totals`. On an unhandled exception, any action SHALL return `StatusCode(500, _response)` with `IsSuccess = false` and `Message` set to `"An unexpected error occurred"`. On a not-found condition requiring a persisted resource (e.g., RemoveCart with unknown cartDetailsId or ApplyCoupon without a header), the action SHALL return HTTP 404 with `IsSuccess = false` and a descriptive message. Foreign identities and references SHALL retain the indistinguishable rejections required by the ownership contract. Own-header absence in GetCart SHALL be a successful logical state, not a not-found condition.
+
+No DTO validation attributes (`[Required]`, `[Range]`, etc.) are present on any request model.
+
+#### Scenario: Successful action
+
+- **WHEN** a cart action completes without error
+- **THEN** the response is HTTP 200 with `ResponseDto.IsSuccess = true`
+
+#### Scenario: Unhandled exception in cart action
+
+- **WHEN** an unhandled exception occurs inside a cart action
+- **THEN** the response is HTTP 500 with `ResponseDto.IsSuccess = false` and `ResponseDto.Message = "An unexpected error occurred"`; no exception details or stack trace are exposed to the caller
+
+#### Scenario: Not-found condition in cart action
+
+- **WHEN** an action requires a persisted resource and receives a nonexistent required reference, such as an unknown cartDetailsId or ApplyCoupon for an absent owned header
+- **THEN** the response is HTTP 404 Not Found with `ResponseDto.IsSuccess = false` and a descriptive message; the explicit successful own GetCart absence contract is not applied to these operations
+
 ### Requirement: JWT authentication configuration
 
 The system SHALL validate JWT bearer tokens using symmetric key signing with the secret from `ApiSettings:Secret`, issuer from `ApiSettings:Issuer`, and audience from `ApiSettings:Audience`. The secret is stored as a plain string under the `ApiSettings` section (not nested under a sub-key). This is the same flat `ApiSettings` pattern used by CouponAPI and ProductAPI.
@@ -87,12 +171,22 @@ The system SHALL authorize all cart actions against the authenticated subject. F
 #### Scenario: Owner reads own cart
 
 - **WHEN** the authenticated owner requests `GET /api/cart/GetCart/{userId}` with their own identity
-- **THEN** their cart is returned under the existing cart composition contract
+- **THEN** their cart is returned under the cart composition contract, including the successful logical empty representation when their own header is absent
 
-#### Scenario: Foreign or nonexistent cart read or coupon update
+#### Scenario: Foreign cart read regardless of existence
 
-- **WHEN** an authenticated user requests a foreign or nonexistent cart through `GetCart` or `ApplyCoupon`
-- **THEN** HTTP 404 is returned with indistinguishable responses without modifying data
+- **WHEN** an authenticated user requests GetCart with a well-formed identity different from the validated JWT subject, whether or not that identity has a persisted cart
+- **THEN** HTTP 404 is returned with indistinguishable status, body and observable response details, without querying the foreign resource's existence, modifying data or publishing a message; ADMIN receives the same rejection
+
+#### Scenario: Foreign or nonexistent required cart for coupon update
+
+- **WHEN** an authenticated user requests ApplyCoupon for a foreign or nonexistent required cart
+- **THEN** HTTP 404 is returned with indistinguishable responses without modifying data or publishing a message; own-header absence is not converted to coupon-update success
+
+#### Scenario: MVC and bearer identities disagree on cart read
+
+- **WHEN** the well-formed identity requested by Mango.Web differs from the validated bearer subject, including a mismatch between its MVC session and bearer identity
+- **THEN** GetCart returns the foreign-identity HTTP 404 rejection without querying that identity's cart existence; Mango.Web does not substitute an empty view
 
 #### Scenario: Owner applies coupon or upserts
 
@@ -124,6 +218,11 @@ The system SHALL authorize all cart actions against the authenticated subject. F
 - **WHEN** an authenticated owner calls `RemoveCart` with a detail belonging to their persisted cart
 - **THEN** the existing removal and last-item header cleanup behavior applies
 
+#### Scenario: Owner reads cart after successful last-item removal
+
+- **WHEN** an authenticated owner successfully removes their last detail and its header is deleted, then requests their own cart again
+- **THEN** the subsequent GetCart returns the successful HTTP 200 logical empty representation without recreating the header; the removal's own success and authorization behavior is unchanged
+
 #### Scenario: Foreign or nonexistent detail
 
 - **WHEN** `RemoveCart` receives a detail belonging to another user or a nonexistent detail
@@ -133,3 +232,52 @@ The system SHALL authorize all cart actions against the authenticated subject. F
 
 - **WHEN** an authenticated user requests `EmailCartRequest` for another user's cart
 - **THEN** HTTP 404 is returned without publishing a message or disclosing the cart's existence
+
+### Requirement: Mango.Web logical empty-cart consumers
+
+Mango.Web SHALL render a successful own logical empty-cart result in CartIndex with HTTP 200. Checkout GET, Checkout POST and EmailCart SHALL reject the virtual `CartHeaderId = 0` result with HTTP 404 before order creation or email dispatch. Existing real-header behavior and HTTP error handling SHALL be preserved; errors SHALL NOT be reinterpreted as empty success or classified by message text.
+
+#### Scenario: CartIndex displays own logical empty cart
+
+- **WHEN** Mango.Web requests GetCart for its authenticated user and receives the successful logical empty representation
+- **THEN** CartIndex renders its existing empty-cart view with a non-null model and final browser HTTP 200
+
+#### Scenario: Last-item removal redirect reaches the empty view
+
+- **WHEN** the owner's last-item removal succeeds and Mango.Web redirects to CartIndex with the same valid session
+- **THEN** the subsequent successful own empty-cart read produces final browser HTTP 200 with the empty view, without recreating a persisted header
+
+#### Scenario: Checkout GET rejects a virtual cart
+
+- **WHEN** Checkout GET loads the own logical empty result with CartHeaderId 0
+- **THEN** it returns HTTP 404 before rendering checkout, calling order creation or requesting email; no order or message is created
+
+#### Scenario: Checkout POST rejects a virtual cart
+
+- **WHEN** Checkout POST reloads the own cart and receives the logical empty result with CartHeaderId 0
+- **THEN** it returns HTTP 404 before calling OrderService, creating an order or requesting payment; no message is published
+
+#### Scenario: EmailCart rejects a virtual cart
+
+- **WHEN** EmailCart reloads the own cart and receives the logical empty result with CartHeaderId 0
+- **THEN** it returns HTTP 404 before requesting cart email; no order is created or message published
+
+#### Scenario: Real-cart presentation and operations are preserved
+
+- **WHEN** the authenticated owner has a real persisted header and valid cart data
+- **THEN** CartIndex, Checkout and EmailCart retain their existing authorized behavior; a real header without details is not reclassified as a virtual header
+
+#### Scenario: Route or configuration not found is not an empty cart
+
+- **WHEN** the GetCart HTTP request returns 404 because of a wrong route or configuration, with an empty, ProblemDetails or generic error body
+- **THEN** Mango.Web preserves the 404 rejection instead of rendering a successful empty-cart view, without using message text to identify the response
+
+#### Scenario: Authentication and upstream failures remain failures
+
+- **WHEN** Mango.Web receives HTTP 400, 401, 403 or 500 from the cart request, encounters its existing 502 transport-failure mapping, or receives an unsuccessful product-composition response
+- **THEN** the existing rejection behavior is preserved and no successful empty-cart view, order creation or cart-email request occurs; dependent-service failures are not treated as header absence
+
+#### Scenario: Rejected removal is not successful emptying
+
+- **WHEN** RemoveCart rejects a foreign or nonexistent detail or reports another failure
+- **THEN** Mango.Web preserves its error response rather than treating the operation as successful emptying and redirecting to a successful empty view
