@@ -7,7 +7,7 @@ namespace Mango.Services.ProductAPI.Models.Dto
         public int ProductId { get; set; }
         [Required]
         public string Name { get; set; }
-        [Range(1, 1000)]
+        [Range(1d, 1000d)]
         public double Price { get; set; }
         public string Description { get; set; }
         public string CategoryName { get; set; }
