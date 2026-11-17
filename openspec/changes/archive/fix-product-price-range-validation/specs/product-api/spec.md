@@ -3,7 +3,11 @@
 ## MODIFIED Requirements
 
 ### Requirement: Product domain model and persistence
-The system SHALL persist products as a `Product` entity with fields `ProductId` (int, identity primary key), `Name` (string, required), `Price` (double, with an inclusive 1-1000 range annotation that validates the original double value without integer conversion or rounding), `Description` (string), `CategoryName` (string), and `ImageUrl` (string). Products SHALL be stored in a single `Products` table in a SQL Server database via an EF Core `AppDbContext` with one `DbSet<Product>`. The table SHALL be seeded at migration time with 4 fixed rows (`Samosa`, `Paneer Tikka`, `Sweet Pie`, `Pav Bhaji`) via `HasData` in `OnModelCreating`.
+The system SHALL persist products as a `Product` entity with fields `ProductId` (int, identity primary key), `Name` (string, required), `Price` (double, with an inclusive 1-1000 range annotation that validates the original double value without integer conversion or rounding), `Description` (string), `CategoryName` (string), and `ImageUrl` (string).
+
+#### Scenario: Product storage and migration contract
+- **WHEN** product storage and migration seeding are configured
+- **THEN** Products SHALL be stored in a single `Products` table in a SQL Server database via an EF Core `AppDbContext` with one `DbSet<Product>`. The table SHALL be seeded at migration time with 4 fixed rows (`Samosa`, `Paneer Tikka`, `Sweet Pie`, `Pav Bhaji`) via `HasData` in `OnModelCreating`.
 
 #### Scenario: Product table schema
 - **WHEN** the database is migrated
@@ -18,7 +22,11 @@ The system SHALL persist products as a `Product` entity with fields `ProductId` 
 - **THEN** price validation succeeds and the original price is unchanged
 
 ### Requirement: Product payload validation rules
-`ProductDto` payloads submitted to `POST /api/product` and `PUT /api/product` SHALL be validated server-side before any persistence occurs: `Name` SHALL be required and non-empty, and `Price` SHALL be within the range `1-1000` inclusive. Price validation SHALL compare the original double value without rounding, truncating, clamping or converting it to an integer, consistently with the product entity's range validation. A payload violating either rule SHALL be rejected with HTTP 400 Bad Request describing the validation failure(s) and SHALL NOT reach the database.
+`ProductDto` payloads submitted to `POST /api/product` and `PUT /api/product` SHALL be validated server-side before any persistence occurs: `Name` SHALL be required and non-empty, and `Price` SHALL be within the range `1-1000` inclusive.
+
+#### Scenario: Original price and invalid payload handling
+- **WHEN** ProductAPI validates a submitted product payload
+- **THEN** Price validation SHALL compare the original double value without rounding, truncating, clamping or converting it to an integer, consistently with the product entity's range validation. A payload violating either rule SHALL be rejected with HTTP 400 Bad Request describing the validation failure(s) and SHALL NOT reach the database.
 
 #### Scenario: Missing product name
 - **WHEN** a `ProductDto` payload has an empty or missing `Name`
