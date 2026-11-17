@@ -1,6 +1,6 @@
 # Tasks
 
-Seguimiento de implementación: únicamente las tareas 1.1, 1.2 y 2.1–2.5 (AuthAPI) están autorizadas en este incremento. Aplicar D1-D7 de `design.md`; no ejecutar SQL Server, migraciones, concurrencia ni suites del hardening. Cada incremento incluye su documentación y verificación antes del siguiente.
+Seguimiento de implementación: el incremento AuthAPI (1.1, 1.2 y 2.1–2.5) está verificado. Únicamente las tareas 3.1–3.5 (ProductAPI) están autorizadas en el incremento actual. Aplicar D1-D7 de `design.md`; no ejecutar SQL Server, migraciones, concurrencia ni suites del hardening. Cada incremento incluye su documentación y verificación antes del siguiente.
 
 Orden acordado: AuthAPI → ProductAPI → CouponAPI → OrderAPI → EMailAPI → RewardAPI. AuthAPI es prioritario por la criticidad de autenticación, JWT, Identity y roles; las demás suites se ejecutan independientemente mediante JWT sintéticos locales cuando corresponda, sin depender de AuthAPI. Respetar los endpoints públicos existentes, especialmente ambas consultas GET del catálogo sin JWT.
 
@@ -23,11 +23,13 @@ Evidencia del incremento AuthAPI (2026-11-17): SDK 11.0.100, restore y compilaci
 
 ## 3. ProductAPI — catálogo público y pruebas independientes (P, AC1-AC6)
 
-- [ ] 3.1 Crear Mango.Services.ProductAPI.Tests con TFM/paquetes/referencia D1-D2, carpetas usadas y entrada única Debug/Release en solución; verificar csproj, dotnet sln list y descubrimiento de los casos añadidos en 3.2.
+- [x] 3.1 Crear Mango.Services.ProductAPI.Tests con TFM/paquetes/referencia D1-D2, carpetas usadas y entrada única Debug/Release en solución; verificar csproj, dotnet sln list y descubrimiento de los casos añadidos en 3.2.
 - [ ] 3.2 Añadir Unit para validación de ProductDto y mapping real; verificar Name requerido y límites 1/1000, valores exteriores y preservación de campos mediante assertions.
 - [ ] 3.3 Añadir host HTTP local con validador JWT real, tokens sintéticos propios e InMemory; verificar ambas lecturas públicas sin Authorization, CRUD ADMIN con estado persistido, 200, 404 GET/PUT/DELETE y 500 genérico mediante fallo controlado, sin arrancar AuthAPI ni llamar Program.cs.
 - [ ] 3.4 Cubrir cada escritura con 401 sin token, firma/issuer/audience inválidos y token expirado, 403 sin ADMIN y POST/PUT inválidos 400; verificar ausencia de cambios persistidos y respuestas del pipeline, no solo llamadas directas.
 - [ ] 3.5 Documentar comandos, categorías Unit/Integration, matriz P → pruebas y límites del host/proveedor en el README local; ejecutar dotnet test del proyecto con filtros Unit, Integration y sin filtro, exigiendo casos descubiertos, cero fallos/skips y ninguna dependencia de AuthAPI o de infraestructura externa.
+
+Bloqueo del incremento ProductAPI (2026-11-17): SDK 11.0.100, restore y compilación Release correctos; 12 casos Unit descubiertos, 10 aprobados, 2 fallidos y 0 omitidos. La validación del ProductDto real acepta 0.99 y 1000.01 frente al rango 1..1000 exigido por la spec. Las assertions se conservan; 3.2 no está completada y 3.3–3.5 no se implementan mientras se resuelve el bloqueo. No se modificó producción ni se ejecutó HTTP, SQL, migraciones o infraestructura. Comandos, TRX local ignorado, resultados y límites en `Mango.Services.ProductAPI.Tests/README.md`.
 
 ## 4. CouponAPI — validación y Stripe aislado (C, AC1-AC6)
 
